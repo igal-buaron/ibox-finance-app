@@ -410,12 +410,12 @@ export default function FinanceTracker() {
     })();
   }, []);
 
-  const persist = useCallback(async (key, value) => {
+  const persist = useCallback(async (entity, action, id, item) => {
     try {
       const res = await fetch("/api/data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, value }),
+        body: JSON.stringify({ entity, action, id, item }),
       });
       if (res.status === 401) {
         window.location.href = "/login";
@@ -436,33 +436,33 @@ export default function FinanceTracker() {
   const addTransaction = (tx) => {
     const updated = [tx, ...transactions];
     setTransactions(updated);
-    persist("transactions", updated);
+    persist("transactions", "upsert", tx.id, tx);
     setQuickAddType(null);
   };
 
   const deleteTransaction = (id) => {
     const updated = transactions.filter((t) => t.id !== id);
     setTransactions(updated);
-    persist("transactions", updated);
+    persist("transactions", "delete", id);
   };
 
   const addDebt = (debt) => {
     const updated = [debt, ...debts];
     setDebts(updated);
-    persist("debts", updated);
+    persist("debts", "upsert", debt.id, debt);
     setShowAddDebt(false);
   };
 
   const deleteDebt = (id) => {
     const updated = debts.filter((d) => d.id !== id);
     setDebts(updated);
-    persist("debts", updated);
+    persist("debts", "delete", id);
   };
 
   const toggleSettled = (id) => {
     const updated = debts.map((d) => (d.id === id ? { ...d, settled: !d.settled } : d));
     setDebts(updated);
-    persist("debts", updated);
+    persist("debts", "upsert", id, updated.find((d) => d.id === id));
   };
 
   const stats = useMemo(() => {
