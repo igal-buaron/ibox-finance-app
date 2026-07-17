@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { redis } from "../../../lib/redis";
 import { verifySessionToken } from "../../../lib/auth";
 
+const HASH_KEYS = { transactions: "ibox:tx", debts: "ibox:debt" };
+const LEGACY_KEYS = { transactions: "ibox:transactions", debts: "ibox:debts" };
+
 async function checkAuth(request) {
   const token = request.cookies.get("ibox_session")?.value;
   const secret = process.env.SESSION_SECRET;
@@ -21,17 +24,42 @@ function parseValue(raw, fallback) {
   return raw;
 }
 
+// כל רשומה נשמרת כשדה נפרד ב-hash, כדי שכתיבות ממכשירים שונים לא ידרסו זו את זו.
+async function readEntity(entity) {
+  const hashKey = HASH_KEYS[entity];
+  const hash = await redis.hgetall(hashKey);
+  if (hash && Object.keys(hash).length > 0) {
+    return Object.values(hash)
+      .map((v) => parseValue(v, null))
+      .filter(Boolean);
+  }
+  // מיגרציה חד-פעמית מהמבנה הישן (מערך JSON אחד תחת מפתח בודד)
+  const legacyRaw = await redis.get(LEGACY_KEYS[entity]);
+  const legacyArr = parseValue(legacyRaw, []);
+  if (Array.isArray(legacyArr) && legacyArr.length > 0) {
+    const entries = {};
+    for (const item of legacyArr) {
+      if (item && item.id) entries[item.id] = JSON.stringify(item);
+    }
+    if (Object.keys(entries).length > 0) {
+      await redis.hset(hashKey, entries);
+    }
+    await redis.del(LEGACY_KEYS[entity]);
+    return legacyArr;
+  }
+  return [];
+}
+
 export async function GET(request) {
   if (!(await checkAuth(request))) {
     return NextResponse.json({ error: "לא מחובר" }, { status: 401 });
   }
   try {
-    const rawTx = await redis.get("ibox:transactions");
-    const rawDebts = await redis.get("ibox:debts");
-    return NextResponse.json({
-      transactions: parseValue(rawTx, []),
-      debts: parseValue(rawDebts, []),
-    });
+    const [transactions, debts] = await Promise.all([
+      readEntity("transactions"),
+      readEntity("debts"),
+    ]);
+    return NextResponse.json({ transactions, debts });
   } catch (e) {
     return NextResponse.json({ error: "שגיאה בטעינת נתונים מהשרת" }, { status: 500 });
   }
@@ -47,12 +75,24 @@ export async function POST(request) {
   } catch {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
   }
-  const { key, value } = body;
-  if (key !== "transactions" && key !== "debts") {
-    return NextResponse.json({ error: "מפתח לא תקין" }, { status: 400 });
+  const { entity, action, id, item } = body;
+  if (entity !== "transactions" && entity !== "debts") {
+    return NextResponse.json({ error: "סוג נתון לא תקין" }, { status: 400 });
   }
+  if (action !== "upsert" && action !== "delete") {
+    return NextResponse.json({ error: "פעולה לא תקינה" }, { status: 400 });
+  }
+  if (!id) {
+    return NextResponse.json({ error: "חסר מזהה" }, { status: 400 });
+  }
+  const hashKey = HASH_KEYS[entity];
   try {
-    await redis.set(`ibox:${key}`, JSON.stringify(value));
+    if (action === "upsert") {
+      if (!item) return NextResponse.json({ error: "חסר תוכן" }, { status: 400 });
+      await redis.hset(hashKey, { [id]: JSON.stringify(item) });
+    } else {
+      await redis.hdel(hashKey, id);
+    }
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: "שגיאה בשמירת נתונים בשרת" }, { status: 500 });

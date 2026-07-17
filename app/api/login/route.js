@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSessionToken } from "../../../lib/auth";
+import { loginRatelimit } from "../../../lib/ratelimit";
 
 export async function POST(request) {
   let body;
@@ -13,6 +14,15 @@ export async function POST(request) {
     return NextResponse.json(
       { error: "המערכת לא הוגדרה כראוי - חסרים משתני סביבה ב-Vercel" },
       { status: 500 }
+    );
+  }
+
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const { success } = await loginRatelimit.limit(ip);
+  if (!success) {
+    return NextResponse.json(
+      { error: "יותר מדי ניסיונות התחברות. נסה שוב בעוד דקה." },
+      { status: 429 }
     );
   }
 
