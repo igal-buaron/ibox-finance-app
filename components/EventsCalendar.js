@@ -7,9 +7,75 @@ import {
   BottomSheet, FieldLabel, inputStyle, CategoryPicker, ConfirmDelete,
 } from "./shared";
 
+function AttractionTagInput({ attractions, onChange }) {
+  const [draft, setDraft] = useState("");
+
+  const addTag = () => {
+    const val = draft.trim();
+    if (!val) return;
+    onChange([...attractions, val]);
+    setDraft("");
+  };
+
+  const removeTag = (idx) => {
+    onChange(attractions.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addTag();
+            }
+          }}
+          placeholder="לדוגמה: מתחם קפיצות"
+          className="flex-1 rounded-xl px-3 py-2 outline-none text-sm"
+          style={inputStyle}
+        />
+        <button
+          type="button"
+          onClick={addTag}
+          className="p-2 rounded-xl shrink-0"
+          style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft }}
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+      {attractions.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {attractions.map((a, idx) => (
+            <span
+              key={`${a}-${idx}`}
+              className="text-xs px-2.5 py-1 rounded-full flex items-center gap-1"
+              style={{ backgroundColor: COLORS.surfaceSoft, border: `1px solid ${COLORS.border}`, color: COLORS.textPrimary }}
+            >
+              {a}
+              <button type="button" onClick={() => removeTag(idx)} style={{ color: COLORS.textMuted }}>
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AddEventModal({ initialDate, onClose, onSave }) {
   const [name, setName] = useState("");
   const [date, setDate] = useState(initialDate || todayStr());
+  const [location, setLocation] = useState("");
+  const [eventType, setEventType] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [attractions, setAttractions] = useState([]);
+  const [supplierName, setSupplierName] = useState("");
   const [income, setIncome] = useState("");
   const [expenses, setExpenses] = useState([]);
   const [note, setNote] = useState("");
@@ -36,6 +102,12 @@ function AddEventModal({ initialDate, onClose, onSave }) {
       name: name.trim(),
       date,
       status: "planned",
+      location: location.trim(),
+      eventType: eventType.trim(),
+      startTime,
+      endTime,
+      attractions,
+      supplierName: supplierName.trim(),
       income: incomeNum,
       incomeCategory: "הכנסה מאירוע",
       expenses: cleanExpenses,
@@ -65,6 +137,68 @@ function AddEventModal({ initialDate, onClose, onSave }) {
           value={date}
           onChange={(e) => setDate(e.target.value)}
           className="w-full rounded-xl px-3 py-2.5 outline-none text-sm"
+          style={inputStyle}
+        />
+      </div>
+
+      <div className="mb-3">
+        <FieldLabel>מיקום האירוע</FieldLabel>
+        <input
+          type="text"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          placeholder="לדוגמה: אולמי הגן, ראשון לציון"
+          className="w-full rounded-xl px-3 py-2.5 outline-none"
+          style={inputStyle}
+        />
+      </div>
+
+      <div className="mb-3">
+        <FieldLabel>סוג אירוע</FieldLabel>
+        <input
+          type="text"
+          value={eventType}
+          onChange={(e) => setEventType(e.target.value)}
+          placeholder="לדוגמה: חתונה, בר מצווה, יום הולדת"
+          className="w-full rounded-xl px-3 py-2.5 outline-none"
+          style={inputStyle}
+        />
+      </div>
+
+      <div className="mb-3">
+        <FieldLabel>שעות האירוע</FieldLabel>
+        <div className="flex items-center gap-2">
+          <input
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            className="flex-1 rounded-xl px-3 py-2.5 outline-none text-sm"
+            style={inputStyle}
+          />
+          <span className="text-sm" style={{ color: COLORS.textMuted }}>עד</span>
+          <input
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            className="flex-1 rounded-xl px-3 py-2.5 outline-none text-sm"
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <FieldLabel>סוגי אטרקציות באירוע</FieldLabel>
+        <AttractionTagInput attractions={attractions} onChange={setAttractions} />
+      </div>
+
+      <div className="mb-3">
+        <FieldLabel>שם ספק האירוע</FieldLabel>
+        <input
+          type="text"
+          value={supplierName}
+          onChange={(e) => setSupplierName(e.target.value)}
+          placeholder="לדוגמה: קייטרינג דני"
+          className="w-full rounded-xl px-3 py-2.5 outline-none"
           style={inputStyle}
         />
       </div>
@@ -175,6 +309,43 @@ function EventDetailsModal({ event, onClose, onComplete, onDelete }) {
         )}
       </div>
 
+      {(event.location || event.eventType || event.startTime || event.supplierName) && (
+        <div className="mb-3 space-y-1.5 text-sm">
+          {event.eventType && (
+            <p><span style={{ color: COLORS.textMuted }}>סוג אירוע: </span>{event.eventType}</p>
+          )}
+          {event.location && (
+            <p><span style={{ color: COLORS.textMuted }}>מיקום: </span>{event.location}</p>
+          )}
+          {(event.startTime || event.endTime) && (
+            <p>
+              <span style={{ color: COLORS.textMuted }}>שעות: </span>
+              {event.startTime || "?"} - {event.endTime || "?"}
+            </p>
+          )}
+          {event.supplierName && (
+            <p><span style={{ color: COLORS.textMuted }}>ספק: </span>{event.supplierName}</p>
+          )}
+        </div>
+      )}
+
+      {(event.attractions || []).length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs mb-1.5" style={{ color: COLORS.textMuted }}>אטרקציות</p>
+          <div className="flex flex-wrap gap-1.5">
+            {event.attractions.map((a, idx) => (
+              <span
+                key={`${a}-${idx}`}
+                className="text-xs px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: COLORS.surfaceSoft, border: `1px solid ${COLORS.border}` }}
+              >
+                {a}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl p-3 mb-3" style={{ backgroundColor: COLORS.incomeTint }}>
         <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>הכנסה צפויה</p>
         <p className="font-semibold tabular-nums" style={{ color: COLORS.income }}>{fmtCurrency(event.income)}</p>
@@ -240,7 +411,9 @@ function EventRow({ event, onClick }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate" style={{ textDecoration: done ? "line-through" : "none" }}>{event.name}</p>
-        <p className="text-xs truncate" style={{ color: COLORS.textMuted }}>{fmtDate(event.date)}</p>
+        <p className="text-xs truncate" style={{ color: COLORS.textMuted }}>
+          {fmtDate(event.date)}{event.location ? ` · ${event.location}` : ""}
+        </p>
       </div>
       <p className="font-semibold tabular-nums shrink-0 text-sm" style={{ color: COLORS.income }}>
         {fmtCurrency(event.income)}
