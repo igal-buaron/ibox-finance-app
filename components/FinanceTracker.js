@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Plus, TrendingUp, TrendingDown, Users, Wallet,
-  LayoutGrid, ArrowUpCircle, ArrowDownCircle, Loader2, Receipt, Pencil, Check, LogOut, CalendarDays
+  LayoutGrid, ArrowUpCircle, ArrowDownCircle, Loader2, Receipt, Pencil, Check, LogOut, CalendarDays, FileText
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, CartesianGrid
@@ -13,6 +13,7 @@ import {
   TagBadge, ConfirmDelete, BottomSheet, FieldLabel, inputStyle, CategoryPicker,
 } from "./shared";
 import EventsCalendar from "./EventsCalendar";
+import Quotes from "./Quotes";
 
 function AddTransactionModal({ initialType, onClose, onSave }) {
   const [type, setType] = useState(initialType || "expense");
@@ -233,6 +234,7 @@ export default function FinanceTracker() {
   const [transactions, setTransactions] = useState([]);
   const [debts, setDebts] = useState([]);
   const [events, setEvents] = useState([]);
+  const [quotes, setQuotes] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [quickAddType, setQuickAddType] = useState(null);
   const [showAddDebt, setShowAddDebt] = useState(false);
@@ -253,6 +255,7 @@ export default function FinanceTracker() {
         setTransactions(data.transactions || []);
         setDebts(data.debts || []);
         setEvents(data.events || []);
+        setQuotes(data.quotes || []);
       } catch {
         setLoadError("לא הצלחתי לטעון את הנתונים. רענן את הדף ונסה שוב.");
       } finally {
@@ -364,6 +367,44 @@ export default function FinanceTracker() {
     const updatedEvents = events.map((e) => (e.id === event.id ? updatedEvent : e));
     setEvents(updatedEvents);
     persist("events", "upsert", event.id, updatedEvent);
+  };
+
+  const addQuote = (quote) => {
+    const updated = [quote, ...quotes];
+    setQuotes(updated);
+    persist("quotes", "upsert", quote.id, quote);
+  };
+
+  const deleteQuote = (id) => {
+    const updated = quotes.filter((q) => q.id !== id);
+    setQuotes(updated);
+    persist("quotes", "delete", id);
+  };
+
+  // כשלקוח מאשר הצעת מחיר, נוצר ממנה אירוע מתוכנן (ההכנסה תיכנס בפועל רק כשהאירוע יסומן כגמור)
+  const acceptQuote = (quote) => {
+    const newEvent = {
+      id: genId(),
+      name: `${quote.clientName}${quote.eventType ? " - " + quote.eventType : ""}`,
+      date: quote.date,
+      status: "planned",
+      location: quote.location,
+      eventType: quote.eventType,
+      startTime: quote.startTime,
+      endTime: quote.endTime,
+      attractions: quote.items.map((it) => it.description),
+      supplierName: "",
+      income: quote.items.reduce((s, it) => s + it.price, 0),
+      incomeCategory: "הכנסה מאירוע",
+      expenses: [],
+      note: quote.notes,
+    };
+    addEvent(newEvent);
+
+    const updatedQuote = { ...quote, status: "accepted" };
+    const updatedQuotes = quotes.map((q) => (q.id === quote.id ? updatedQuote : q));
+    setQuotes(updatedQuotes);
+    persist("quotes", "upsert", quote.id, updatedQuote);
   };
 
   const stats = useMemo(() => {
@@ -665,6 +706,15 @@ export default function FinanceTracker() {
           />
         )}
 
+        {activeTab === "quotes" && (
+          <Quotes
+            quotes={quotes}
+            onAddQuote={addQuote}
+            onDeleteQuote={deleteQuote}
+            onAcceptQuote={acceptQuote}
+          />
+        )}
+
         {saveError && (
           <p className="text-xs mt-3 text-center" style={{ color: COLORS.expense }}>{saveError}</p>
         )}
@@ -678,12 +728,13 @@ export default function FinanceTracker() {
           { key: "dashboard", label: "בית", icon: LayoutGrid },
           { key: "transactions", label: "תנועות", icon: Receipt },
           { key: "events", label: "יומן", icon: CalendarDays },
+          { key: "quotes", label: "הצעות", icon: FileText },
           { key: "debts", label: "חובות", icon: Users },
         ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className="flex flex-col items-center gap-1 text-xs font-medium px-4 py-2"
+            className="flex flex-col items-center gap-1 text-[11px] font-medium px-2 py-2"
             style={{ color: activeTab === tab.key ? COLORS.gold : COLORS.textMuted }}
           >
             <tab.icon size={20} />

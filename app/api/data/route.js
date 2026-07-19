@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { redis } from "../../../lib/redis";
 import { verifySessionToken } from "../../../lib/auth";
 
-const HASH_KEYS = { transactions: "ibox:tx", debts: "ibox:debt", events: "ibox:event" };
+const HASH_KEYS = { transactions: "ibox:tx", debts: "ibox:debt", events: "ibox:event", quotes: "ibox:quote" };
 const LEGACY_KEYS = { transactions: "ibox:transactions", debts: "ibox:debts" };
 
 async function checkAuth(request) {
@@ -57,12 +57,13 @@ export async function GET(request) {
     return NextResponse.json({ error: "לא מחובר" }, { status: 401 });
   }
   try {
-    const [transactions, debts, events] = await Promise.all([
+    const [transactions, debts, events, quotes] = await Promise.all([
       readEntity("transactions"),
       readEntity("debts"),
       readEntity("events"),
+      readEntity("quotes"),
     ]);
-    return NextResponse.json({ transactions, debts, events });
+    return NextResponse.json({ transactions, debts, events, quotes });
   } catch (e) {
     return NextResponse.json({ error: "שגיאה בטעינת נתונים מהשרת" }, { status: 500 });
   }
