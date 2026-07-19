@@ -9,6 +9,7 @@ import {
 
 function AddQuoteModal({ onClose, onSave }) {
   const [clientName, setClientName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
   const [eventType, setEventType] = useState("");
   const [date, setDate] = useState(todayStr());
   const [location, setLocation] = useState("");
@@ -38,6 +39,7 @@ function AddQuoteModal({ onClose, onSave }) {
     onSave({
       id: genId(),
       clientName: clientName.trim(),
+      clientPhone: clientPhone.trim(),
       eventType: eventType.trim(),
       date,
       location: location.trim(),
@@ -61,6 +63,18 @@ function AddQuoteModal({ onClose, onSave }) {
           value={clientName}
           onChange={(e) => setClientName(e.target.value)}
           placeholder="למי מיועדת ההצעה?"
+          className="w-full rounded-xl px-3 py-2.5 outline-none"
+          style={inputStyle}
+        />
+      </div>
+
+      <div className="mb-3">
+        <FieldLabel>טלפון הלקוח</FieldLabel>
+        <input
+          type="tel"
+          value={clientPhone}
+          onChange={(e) => setClientPhone(e.target.value)}
+          placeholder="050-1234567"
           className="w-full rounded-xl px-3 py-2.5 outline-none"
           style={inputStyle}
         />
@@ -244,6 +258,7 @@ function QuotePreview({ quote, onClose, onAccept, onDelete }) {
         <h3 className="text-base font-bold mb-3" style={{ color: COLORS.textPrimary }}>הצעת מחיר עבור {quote.clientName}</h3>
 
         <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
+          {quote.clientPhone && <p><span style={{ color: COLORS.textMuted }}>טלפון: </span>{quote.clientPhone}</p>}
           {quote.eventType && <p><span style={{ color: COLORS.textMuted }}>סוג אירוע: </span>{quote.eventType}</p>}
           <p><span style={{ color: COLORS.textMuted }}>תאריך: </span>{fmtDate(quote.date)}</p>
           {quote.location && <p><span style={{ color: COLORS.textMuted }}>מיקום: </span>{quote.location}</p>}
