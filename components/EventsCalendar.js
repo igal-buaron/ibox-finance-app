@@ -70,6 +70,7 @@ function AttractionTagInput({ attractions, onChange }) {
 function AddEventModal({ initialDate, onClose, onSave }) {
   const [name, setName] = useState("");
   const [date, setDate] = useState(initialDate || todayStr());
+  const [clientPhone, setClientPhone] = useState("");
   const [location, setLocation] = useState("");
   const [eventType, setEventType] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -102,6 +103,7 @@ function AddEventModal({ initialDate, onClose, onSave }) {
       name: name.trim(),
       date,
       status: "planned",
+      clientPhone: clientPhone.trim(),
       location: location.trim(),
       eventType: eventType.trim(),
       startTime,
@@ -137,6 +139,18 @@ function AddEventModal({ initialDate, onClose, onSave }) {
           value={date}
           onChange={(e) => setDate(e.target.value)}
           className="w-full rounded-xl px-3 py-2.5 outline-none text-sm"
+          style={inputStyle}
+        />
+      </div>
+
+      <div className="mb-3">
+        <FieldLabel>טלפון הלקוח</FieldLabel>
+        <input
+          type="tel"
+          value={clientPhone}
+          onChange={(e) => setClientPhone(e.target.value)}
+          placeholder="050-1234567"
+          className="w-full rounded-xl px-3 py-2.5 outline-none"
           style={inputStyle}
         />
       </div>
@@ -309,8 +323,11 @@ function EventDetailsModal({ event, onClose, onComplete, onDelete }) {
         )}
       </div>
 
-      {(event.location || event.eventType || event.startTime || event.supplierName) && (
+      {(event.clientPhone || event.location || event.eventType || event.startTime || event.supplierName) && (
         <div className="mb-3 space-y-1.5 text-sm">
+          {event.clientPhone && (
+            <p><span style={{ color: COLORS.textMuted }}>טלפון: </span>{event.clientPhone}</p>
+          )}
           {event.eventType && (
             <p><span style={{ color: COLORS.textMuted }}>סוג אירוע: </span>{event.eventType}</p>
           )}

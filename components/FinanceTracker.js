@@ -388,6 +388,7 @@ export default function FinanceTracker() {
       name: `${quote.clientName}${quote.eventType ? " - " + quote.eventType : ""}`,
       date: quote.date,
       status: "planned",
+      clientPhone: quote.clientPhone,
       location: quote.location,
       eventType: quote.eventType,
       startTime: quote.startTime,
