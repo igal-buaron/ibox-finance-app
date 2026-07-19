@@ -1,169 +1,18 @@
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  Plus, X, TrendingUp, TrendingDown, Users, Trash2, Wallet,
-  LayoutGrid, ArrowUpCircle, ArrowDownCircle, Loader2, Receipt, Pencil, Check, LogOut
+  Plus, TrendingUp, TrendingDown, Users, Wallet,
+  LayoutGrid, ArrowUpCircle, ArrowDownCircle, Loader2, Receipt, Pencil, Check, LogOut, CalendarDays
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, CartesianGrid
 } from "recharts";
-
-// ---------- design tokens (light, friendly) ----------
-const COLORS = {
-  bg: "#FAF7EF",
-  surface: "#FFFFFF",
-  surfaceSoft: "#F3EEE1",
-  border: "#ECE6D6",
-  gold: "#B8892E",
-  goldSoft: "#8A6A22",
-  goldTint: "#F3E7C9",
-  textPrimary: "#2C2A24",
-  textMuted: "#8B8574",
-  income: "#2F9563",
-  incomeTint: "#E3F3EA",
-  expense: "#C24A3F",
-  expenseTint: "#FBEAE7",
-  tagBiz: "#B8892E",
-  tagPersonal: "#4E7C8C",
-};
-
-const shadowSm = "0 1px 3px rgba(44,42,36,0.06), 0 1px 2px rgba(44,42,36,0.04)";
-const shadowMd = "0 4px 14px rgba(44,42,36,0.08)";
-
-const INCOME_CATEGORIES = [
-  { name: "הכנסה מאירוע", tag: "עסקי" },
-  { name: "הכנסה עסקית אחרת", tag: "עסקי" },
-  { name: "משכורת", tag: "פרטי" },
-  { name: "הכנסה פרטית אחרת", tag: "פרטי" },
-];
-
-const EXPENSE_CATEGORIES = [
-  { name: "ציוד ותחזוקה", tag: "עסקי" },
-  { name: "דלק ורכב עסקי", tag: "עסקי" },
-  { name: "פרסום ושיווק", tag: "עסקי" },
-  { name: "הוצאה עסקית אחרת", tag: "עסקי" },
-  { name: "אוכל", tag: "פרטי" },
-  { name: "בית ומשק בית", tag: "פרטי" },
-  { name: "תחבורה", tag: "פרטי" },
-  { name: "בילויים ופנאי", tag: "פרטי" },
-  { name: "בריאות", tag: "פרטי" },
-  { name: "הוצאה פרטית אחרת", tag: "פרטי" },
-];
-
-const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-const todayStr = () => new Date().toISOString().slice(0, 10);
-const monthKeyOf = (dateStr) => dateStr.slice(0, 7);
-const currentMonthKey = () => todayStr().slice(0, 7);
-
-const fmtCurrency = (n) =>
-  new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(n || 0);
-
-const fmtDate = (d) => {
-  try {
-    return new Date(d).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" });
-  } catch {
-    return d;
-  }
-};
-
-const isToday = (d) => d === todayStr();
-
-const monthLabel = (key) => {
-  const [y, m] = key.split("-").map(Number);
-  return new Date(y, m - 1, 1).toLocaleDateString("he-IL", { month: "short" });
-};
-
-// ---------- small building blocks ----------
-
-function TagBadge({ tag }) {
-  const color = tag === "עסקי" ? COLORS.tagBiz : COLORS.tagPersonal;
-  return (
-    <span
-      className="text-[11px] px-2 py-0.5 rounded-full font-medium shrink-0"
-      style={{ color, backgroundColor: color + "1A" }}
-    >
-      {tag}
-    </span>
-  );
-}
-
-function ConfirmDelete({ onConfirm }) {
-  const [armed, setArmed] = useState(false);
-  useEffect(() => {
-    if (!armed) return;
-    const t = setTimeout(() => setArmed(false), 2500);
-    return () => clearTimeout(t);
-  }, [armed]);
-  return (
-    <button
-      onClick={() => (armed ? onConfirm() : setArmed(true))}
-      className="p-2 rounded-lg transition-colors shrink-0"
-      style={{
-        color: armed ? "#fff" : COLORS.textMuted,
-        backgroundColor: armed ? COLORS.expense : "transparent",
-      }}
-      title={armed ? "לחץ שוב לאישור" : "מחק"}
-    >
-      <Trash2 size={16} />
-    </button>
-  );
-}
-
-function BottomSheet({ title, onClose, children }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: "#2C2A2466" }}>
-      <div
-        className="w-full max-w-md rounded-t-3xl p-5 pb-8"
-        style={{ backgroundColor: COLORS.surface, boxShadow: "0 -8px 30px rgba(44,42,36,0.18)" }}
-      >
-        <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ backgroundColor: COLORS.border }} />
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold" style={{ color: COLORS.textPrimary }}>{title}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-full" style={{ color: COLORS.textMuted, backgroundColor: COLORS.surfaceSoft }}>
-            <X size={18} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function FieldLabel({ children }) {
-  return <label className="text-xs font-medium block mb-1.5" style={{ color: COLORS.textMuted }}>{children}</label>;
-}
-
-const inputStyle = {
-  backgroundColor: COLORS.surfaceSoft,
-  border: `1px solid ${COLORS.border}`,
-  color: COLORS.textPrimary,
-};
-
-function CategoryPicker({ categories, value, onChange }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      {categories.map((c) => {
-        const selected = value === c.name;
-        const tagColor = c.tag === "עסקי" ? COLORS.tagBiz : COLORS.tagPersonal;
-        return (
-          <button
-            key={c.name}
-            type="button"
-            onClick={() => onChange(c.name)}
-            className="px-3 py-2 rounded-xl text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: selected ? tagColor + "20" : COLORS.surfaceSoft,
-              border: `1.5px solid ${selected ? tagColor : COLORS.border}`,
-              color: selected ? tagColor : COLORS.textPrimary,
-            }}
-          >
-            {c.name}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+import {
+  COLORS, shadowSm, shadowMd, INCOME_CATEGORIES, EXPENSE_CATEGORIES,
+  genId, todayStr, monthKeyOf, currentMonthKey, fmtCurrency, fmtDate, isToday, monthLabel,
+  TagBadge, ConfirmDelete, BottomSheet, FieldLabel, inputStyle, CategoryPicker,
+} from "./shared";
+import EventsCalendar from "./EventsCalendar";
 
 function AddTransactionModal({ initialType, onClose, onSave }) {
   const [type, setType] = useState(initialType || "expense");
@@ -383,6 +232,7 @@ export default function FinanceTracker() {
   const [loadError, setLoadError] = useState("");
   const [transactions, setTransactions] = useState([]);
   const [debts, setDebts] = useState([]);
+  const [events, setEvents] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [quickAddType, setQuickAddType] = useState(null);
   const [showAddDebt, setShowAddDebt] = useState(false);
@@ -402,6 +252,7 @@ export default function FinanceTracker() {
         const data = await res.json();
         setTransactions(data.transactions || []);
         setDebts(data.debts || []);
+        setEvents(data.events || []);
       } catch {
         setLoadError("לא הצלחתי לטעון את הנתונים. רענן את הדף ונסה שוב.");
       } finally {
@@ -463,6 +314,56 @@ export default function FinanceTracker() {
     const updated = debts.map((d) => (d.id === id ? { ...d, settled: !d.settled } : d));
     setDebts(updated);
     persist("debts", "upsert", id, updated.find((d) => d.id === id));
+  };
+
+  const addEvent = (event) => {
+    const updated = [event, ...events];
+    setEvents(updated);
+    persist("events", "upsert", event.id, event);
+  };
+
+  const deleteEvent = (id) => {
+    const updated = events.filter((e) => e.id !== id);
+    setEvents(updated);
+    persist("events", "delete", id);
+  };
+
+  // כשאירוע מסומן כגמור, ההכנסה וכל ההוצאות שהוגדרו לו נכנסות אוטומטית לתנועות
+  const completeEvent = (event) => {
+    const newTransactions = [];
+    if (event.income > 0) {
+      newTransactions.push({
+        id: genId(),
+        type: "income",
+        amount: event.income,
+        category: event.incomeCategory || "הכנסה מאירוע",
+        tag: "עסקי",
+        date: event.date,
+        note: `אירוע: ${event.name}`,
+      });
+    }
+    (event.expenses || []).forEach((exp) => {
+      if (exp.amount > 0) {
+        newTransactions.push({
+          id: genId(),
+          type: "expense",
+          amount: exp.amount,
+          category: exp.category,
+          tag: "עסקי",
+          date: event.date,
+          note: `אירוע: ${event.name}`,
+        });
+      }
+    });
+
+    const updatedTransactions = [...newTransactions, ...transactions];
+    setTransactions(updatedTransactions);
+    newTransactions.forEach((tx) => persist("transactions", "upsert", tx.id, tx));
+
+    const updatedEvent = { ...event, status: "done" };
+    const updatedEvents = events.map((e) => (e.id === event.id ? updatedEvent : e));
+    setEvents(updatedEvents);
+    persist("events", "upsert", event.id, updatedEvent);
   };
 
   const stats = useMemo(() => {
@@ -755,6 +656,15 @@ export default function FinanceTracker() {
           </div>
         )}
 
+        {activeTab === "events" && (
+          <EventsCalendar
+            events={events}
+            onAddEvent={addEvent}
+            onDeleteEvent={deleteEvent}
+            onCompleteEvent={completeEvent}
+          />
+        )}
+
         {saveError && (
           <p className="text-xs mt-3 text-center" style={{ color: COLORS.expense }}>{saveError}</p>
         )}
@@ -767,6 +677,7 @@ export default function FinanceTracker() {
         {[
           { key: "dashboard", label: "בית", icon: LayoutGrid },
           { key: "transactions", label: "תנועות", icon: Receipt },
+          { key: "events", label: "יומן", icon: CalendarDays },
           { key: "debts", label: "חובות", icon: Users },
         ].map((tab) => (
           <button
