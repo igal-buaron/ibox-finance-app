@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { redis } from "../../../lib/redis";
 import { verifySessionToken } from "../../../lib/auth";
 
-const HASH_KEYS = { transactions: "ibox:tx", debts: "ibox:debt" };
+const HASH_KEYS = { transactions: "ibox:tx", debts: "ibox:debt", events: "ibox:event" };
 const LEGACY_KEYS = { transactions: "ibox:transactions", debts: "ibox:debts" };
 
 async function checkAuth(request) {
@@ -34,7 +34,9 @@ async function readEntity(entity) {
       .filter(Boolean);
   }
   // מיגרציה חד-פעמית מהמבנה הישן (מערך JSON אחד תחת מפתח בודד)
-  const legacyRaw = await redis.get(LEGACY_KEYS[entity]);
+  const legacyKey = LEGACY_KEYS[entity];
+  if (!legacyKey) return [];
+  const legacyRaw = await redis.get(legacyKey);
   const legacyArr = parseValue(legacyRaw, []);
   if (Array.isArray(legacyArr) && legacyArr.length > 0) {
     const entries = {};
@@ -44,7 +46,7 @@ async function readEntity(entity) {
     if (Object.keys(entries).length > 0) {
       await redis.hset(hashKey, entries);
     }
-    await redis.del(LEGACY_KEYS[entity]);
+    await redis.del(legacyKey);
     return legacyArr;
   }
   return [];
@@ -55,11 +57,12 @@ export async function GET(request) {
     return NextResponse.json({ error: "לא מחובר" }, { status: 401 });
   }
   try {
-    const [transactions, debts] = await Promise.all([
+    const [transactions, debts, events] = await Promise.all([
       readEntity("transactions"),
       readEntity("debts"),
+      readEntity("events"),
     ]);
-    return NextResponse.json({ transactions, debts });
+    return NextResponse.json({ transactions, debts, events });
   } catch (e) {
     return NextResponse.json({ error: "שגיאה בטעינת נתונים מהשרת" }, { status: 500 });
   }
@@ -76,7 +79,7 @@ export async function POST(request) {
     return NextResponse.json({ error: "בקשה לא תקינה" }, { status: 400 });
   }
   const { entity, action, id, item } = body;
-  if (entity !== "transactions" && entity !== "debts") {
+  if (!HASH_KEYS[entity]) {
     return NextResponse.json({ error: "סוג נתון לא תקין" }, { status: 400 });
   }
   if (action !== "upsert" && action !== "delete") {
