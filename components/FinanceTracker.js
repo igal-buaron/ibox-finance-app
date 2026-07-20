@@ -235,6 +235,7 @@ export default function FinanceTracker() {
   const [debts, setDebts] = useState([]);
   const [events, setEvents] = useState([]);
   const [quotes, setQuotes] = useState([]);
+  const [catalog, setCatalog] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [quickAddType, setQuickAddType] = useState(null);
   const [showAddDebt, setShowAddDebt] = useState(false);
@@ -256,6 +257,7 @@ export default function FinanceTracker() {
         setDebts(data.debts || []);
         setEvents(data.events || []);
         setQuotes(data.quotes || []);
+        setCatalog(data.catalog || []);
       } catch {
         setLoadError("לא הצלחתי לטעון את הנתונים. רענן את הדף ונסה שוב.");
       } finally {
@@ -406,6 +408,18 @@ export default function FinanceTracker() {
     const updatedQuotes = quotes.map((q) => (q.id === quote.id ? updatedQuote : q));
     setQuotes(updatedQuotes);
     persist("quotes", "upsert", quote.id, updatedQuote);
+  };
+
+  const addCatalogItem = (item) => {
+    const updated = [item, ...catalog];
+    setCatalog(updated);
+    persist("catalog", "upsert", item.id, item);
+  };
+
+  const deleteCatalogItem = (id) => {
+    const updated = catalog.filter((c) => c.id !== id);
+    setCatalog(updated);
+    persist("catalog", "delete", id);
   };
 
   const stats = useMemo(() => {
@@ -713,6 +727,9 @@ export default function FinanceTracker() {
             onAddQuote={addQuote}
             onDeleteQuote={deleteQuote}
             onAcceptQuote={acceptQuote}
+            catalog={catalog}
+            onSaveCatalogItem={addCatalogItem}
+            onDeleteCatalogItem={deleteCatalogItem}
           />
         )}
 
