@@ -1,30 +1,12 @@
 "use client";
 import React, { useState, useRef } from "react";
-import { Plus, X, FileText, Check, Download, Loader2 } from "lucide-react";
+import { Plus, X, FileText, Check, Download, Loader2, Share2, Copy } from "lucide-react";
 import {
   COLORS, shadowSm, shadowMd,
   genId, todayStr, fmtDate,
   BottomSheet, FieldLabel, inputStyle, ConfirmDelete,
 } from "./shared";
-
-// פרטי העסק שמופיעים על גבי כל הצעת מחיר
-const BUSINESS = {
-  name: "I-BOX EVENTS",
-  ownerName: "יגאל בוארון",
-  email: "iboxattraction@gmail.com",
-  phone: "052-8606446",
-  companyId: "325187193",
-};
-
-const DEFAULT_TERMS = [
-  "אין צורך במקדמה.",
-  "התשלום המלא יבוצע עד שבוע לאחר האירוע.",
-  "ביטול עד שבועיים לפני מועד האירוע - ללא חיוב. ביטול לאחר מכן - חייב בגובה 50% מסכום ההצעה.",
-  'המחיר כולל מע"מ כדין.',
-  "ההצעה תקפה ל-14 יום ממועד הוצאתה.",
-];
-
-const fmtILS = (n) => `₪ ${Math.round(n || 0).toLocaleString("he-IL")}`;
+import QuoteDocument, { fmtILS } from "./QuoteDocument";
 
 function ItemDetailsInput({ details, onAdd, onRemove }) {
   const [draft, setDraft] = useState("");
@@ -337,12 +319,22 @@ function AddQuoteModal({ onClose, onSave, catalog, onSaveCatalogItem, onDeleteCa
   );
 }
 
+function toWhatsAppDigits(phone) {
+  const digits = (phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("0")) return "972" + digits.slice(1);
+  if (digits.startsWith("972")) return digits;
+  return digits;
+}
+
 function QuotePreview({ quote, onClose, onAccept, onDelete }) {
   const printRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
-  const total = quote.items.reduce((s, it) => s + it.price, 0);
+  const [copied, setCopied] = useState(false);
   const accepted = quote.status === "accepted";
-  const dark = "#211E1A";
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/quote/${quote.id}` : "";
+  const waDigits = toWhatsAppDigits(quote.clientPhone);
+  const waMessage = `שלום ${quote.clientName}, מצורפת הצעת המחיר מ-I-BOX EVENTS: ${shareUrl}`;
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -363,74 +355,47 @@ function QuotePreview({ quote, onClose, onAccept, onDelete }) {
     }
   };
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      alert("ההעתקה נכשלה, אפשר להעתיק ידנית: " + shareUrl);
+    }
+  };
+
   return (
     <BottomSheet title="הצעת מחיר" onClose={onClose}>
-      <div ref={printRef} dir="rtl" className="rounded-2xl p-5 mb-4" style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}` }}>
-        <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 mb-5 text-sm">
-          <div>
-            <p><b>לכבוד:</b> {quote.clientName}</p>
-            {quote.clientPhone && <p><b>טלפון:</b> {quote.clientPhone}</p>}
-            {quote.eventType && <p><b>סוג אירוע:</b> {quote.eventType}</p>}
-          </div>
-          <div>
-            {quote.location && <p><b>מיקום:</b> {quote.location}</p>}
-            <p><b>תאריך אירוע:</b> {fmtDate(quote.date)}</p>
-            <p><b>תאריך הצעה:</b> {fmtDate(quote.createdAt || quote.date)}</p>
-          </div>
-        </div>
+      <QuoteDocument quote={quote} innerRef={printRef} />
 
-        <div className="space-y-3 mb-4">
-          {quote.items.map((it) => (
-            <div key={it.id} className="rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: dark }}>
-                <span className="font-bold text-sm" style={{ color: COLORS.gold }}>{fmtILS(it.price)}</span>
-                <span className="font-bold text-sm" style={{ color: "#fff" }}>{it.description}</span>
-              </div>
-              {it.details && it.details.length > 0 && (
-                <ul className="px-4 py-2 space-y-1" style={{ backgroundColor: COLORS.surfaceSoft }}>
-                  {it.details.map((d, idx) => (
-                    <li key={idx} className="flex items-center justify-end gap-1.5 text-xs">
-                      <span>{d}</span>
-                      <span style={{ color: COLORS.gold }}>◆</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
-        </div>
+      <div className="rounded-xl p-2.5 mt-4 mb-3 flex items-center gap-2" style={{ backgroundColor: COLORS.surfaceSoft, border: `1px solid ${COLORS.border}` }}>
+        <span className="flex-1 text-xs truncate" style={{ color: COLORS.textMuted, direction: "ltr", textAlign: "right" }}>{shareUrl}</span>
+        <button onClick={handleCopyLink} className="text-xs font-medium px-2 py-1.5 rounded-lg flex items-center gap-1 shrink-0" style={{ backgroundColor: COLORS.surface, color: COLORS.textPrimary, border: `1px solid ${COLORS.border}` }}>
+          <Copy size={13} /> {copied ? "הועתק!" : "העתק"}
+        </button>
+      </div>
 
-        <div className="flex items-center justify-between px-3 py-2.5 rounded-lg mb-4" style={{ backgroundColor: dark }}>
-          <span className="font-bold text-sm" style={{ color: COLORS.gold }}>{fmtILS(total)}</span>
-          <span className="font-bold text-sm" style={{ color: COLORS.gold }}>סה"כ לתשלום (כולל מע"מ)</span>
-        </div>
-
-        <div className="mb-4">
-          <p className="font-semibold text-sm text-center mb-2">תנאים כלליים</p>
-          <ul className="space-y-1">
-            {DEFAULT_TERMS.map((t, idx) => (
-              <li key={idx} className="flex items-start justify-end gap-1.5 text-xs">
-                <span className="text-right">{t}</span>
-                <span className="shrink-0">•</span>
-              </li>
-            ))}
-            {quote.notes && (
-              <li className="flex items-start justify-end gap-1.5 text-xs">
-                <span className="text-right">{quote.notes}</span>
-                <span className="shrink-0">•</span>
-              </li>
-            )}
-          </ul>
-        </div>
-
-        <p className="text-sm mb-0.5">בברכה,</p>
-        <p className="text-sm font-bold mb-3">{BUSINESS.name} | {BUSINESS.ownerName}</p>
-
-        <div style={{ borderTop: `1px solid ${COLORS.gold}` }} className="pt-2">
-          <p className="text-center text-xs" style={{ color: COLORS.textMuted }}>
-            {BUSINESS.email} | {BUSINESS.phone} | ח.פ {BUSINESS.companyId} | {BUSINESS.name}
-          </p>
-        </div>
+      <div className="flex gap-2 mb-2">
+        {waDigits ? (
+          <a
+            href={`https://wa.me/${waDigits}?text=${encodeURIComponent(waMessage)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-white"
+            style={{ backgroundColor: "#25D366" }}
+          >
+            <Share2 size={16} /> שליחת קישור בוואטסאפ ללקוח
+          </a>
+        ) : (
+          <button
+            onClick={handleCopyLink}
+            className="flex-1 py-3 rounded-xl font-semibold flex items-center justify-center gap-1.5 text-white"
+            style={{ backgroundColor: "#25D366" }}
+          >
+            <Share2 size={16} /> העתק קישור לשליחה בוואטסאפ
+          </button>
+        )}
       </div>
 
       <div className="flex gap-2 mb-2">
@@ -441,7 +406,7 @@ function QuotePreview({ quote, onClose, onAccept, onDelete }) {
           style={{ backgroundColor: COLORS.surfaceSoft, color: COLORS.textPrimary, border: `1px solid ${COLORS.border}` }}
         >
           {downloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-          הורדה כ-PDF לשליחה בוואטסאפ
+          הורדה כ-PDF (אופציונלי)
         </button>
       </div>
 
