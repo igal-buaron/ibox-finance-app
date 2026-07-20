@@ -3,9 +3,84 @@ import React, { useState, useRef } from "react";
 import { Plus, X, FileText, Check, Download, Loader2 } from "lucide-react";
 import {
   COLORS, shadowSm, shadowMd,
-  genId, todayStr, fmtCurrency, fmtDate,
+  genId, todayStr, fmtDate,
   BottomSheet, FieldLabel, inputStyle, ConfirmDelete,
 } from "./shared";
+
+// פרטי העסק שמופיעים על גבי כל הצעת מחיר
+const BUSINESS = {
+  name: "I-BOX EVENTS",
+  ownerName: "יגאל בוארון",
+  email: "iboxattraction@gmail.com",
+  phone: "052-8606446",
+  companyId: "325187193",
+};
+
+const DEFAULT_TERMS = [
+  "אין צורך במקדמה.",
+  "התשלום המלא יבוצע עד שבוע לאחר האירוע.",
+  "ביטול עד שבועיים לפני מועד האירוע - ללא חיוב. ביטול לאחר מכן - חייב בגובה 50% מסכום ההצעה.",
+  'המחיר כולל מע"מ כדין.',
+  "ההצעה תקפה ל-14 יום ממועד הוצאתה.",
+];
+
+const fmtILS = (n) => `₪ ${Math.round(n || 0).toLocaleString("he-IL")}`;
+
+function ItemDetailsInput({ details, onAdd, onRemove }) {
+  const [draft, setDraft] = useState("");
+
+  const submit = () => {
+    const val = draft.trim();
+    if (!val) return;
+    onAdd(val);
+    setDraft("");
+  };
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-2 mb-1.5">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          placeholder="פרט על השירות (לדוגמה: איש תפעול צמוד)"
+          className="flex-1 rounded-lg px-2.5 py-1.5 text-xs outline-none"
+          style={inputStyle}
+        />
+        <button
+          type="button"
+          onClick={submit}
+          className="p-1.5 rounded-lg shrink-0"
+          style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft }}
+        >
+          <Plus size={13} />
+        </button>
+      </div>
+      {details.length > 0 && (
+        <ul className="space-y-1">
+          {details.map((d, idx) => (
+            <li
+              key={idx}
+              className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg"
+              style={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}` }}
+            >
+              <span>{d}</span>
+              <button type="button" onClick={() => onRemove(idx)} style={{ color: COLORS.textMuted }}>
+                <X size={12} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function AddQuoteModal({ onClose, onSave }) {
   const [clientName, setClientName] = useState("");
@@ -21,7 +96,7 @@ function AddQuoteModal({ onClose, onSave }) {
   const [error, setError] = useState("");
 
   const addItem = () => {
-    setItems((prev) => [...prev, { id: genId(), description: "", price: "" }]);
+    setItems((prev) => [...prev, { id: genId(), description: "", price: "", details: [] }]);
   };
   const updateItem = (id, patch) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -29,12 +104,18 @@ function AddQuoteModal({ onClose, onSave }) {
   const removeItem = (id) => {
     setItems((prev) => prev.filter((it) => it.id !== id));
   };
+  const addDetail = (id, text) => {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, details: [...it.details, text] } : it)));
+  };
+  const removeDetail = (id, idx) => {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, details: it.details.filter((_, i) => i !== idx) } : it)));
+  };
 
   const handleSave = () => {
     if (!clientName.trim()) return setError("צריך למלא שם לקוח");
     const cleanItems = items
       .filter((it) => it.description.trim() && parseFloat(it.price) > 0)
-      .map((it) => ({ id: it.id, description: it.description.trim(), price: parseFloat(it.price) }));
+      .map((it) => ({ id: it.id, description: it.description.trim(), price: parseFloat(it.price), details: it.details }));
     if (cleanItems.length === 0) return setError("צריך להוסיף לפחות שירות/אטרקציה אחד עם מחיר");
     onSave({
       id: genId(),
@@ -158,35 +239,42 @@ function AddQuoteModal({ onClose, onSave }) {
             className="text-xs font-medium px-2 py-1 rounded-lg flex items-center gap-1 shrink-0"
             style={{ color: COLORS.goldSoft, backgroundColor: COLORS.goldTint }}
           >
-            <Plus size={13} /> הוסף שורה
+            <Plus size={13} /> הוסף מוצר
           </button>
         </div>
         {items.length === 0 ? (
-          <p className="text-xs" style={{ color: COLORS.textMuted }}>אין עדיין שורות בהצעה</p>
+          <p className="text-xs" style={{ color: COLORS.textMuted }}>אין עדיין מוצרים בהצעה</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {items.map((it) => (
-              <div key={it.id} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={it.description}
-                  onChange={(e) => updateItem(it.id, { description: e.target.value })}
-                  placeholder="לדוגמה: מתחם קפיצות"
-                  className="flex-1 rounded-xl px-3 py-2 outline-none text-sm"
-                  style={inputStyle}
+              <div key={it.id} className="p-2.5 rounded-xl" style={{ backgroundColor: COLORS.surfaceSoft, border: `1px solid ${COLORS.border}` }}>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={it.description}
+                    onChange={(e) => updateItem(it.id, { description: e.target.value })}
+                    placeholder="לדוגמה: עמדת צילום רטרו"
+                    className="flex-1 rounded-lg px-2.5 py-1.5 outline-none text-sm"
+                    style={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.textPrimary }}
+                  />
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={it.price}
+                    onChange={(e) => updateItem(it.id, { price: e.target.value })}
+                    placeholder="מחיר"
+                    className="w-20 rounded-lg px-2.5 py-1.5 outline-none text-sm font-semibold tabular-nums"
+                    style={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.textPrimary }}
+                  />
+                  <button type="button" onClick={() => removeItem(it.id)} className="p-1 shrink-0" style={{ color: COLORS.textMuted }}>
+                    <X size={15} />
+                  </button>
+                </div>
+                <ItemDetailsInput
+                  details={it.details}
+                  onAdd={(text) => addDetail(it.id, text)}
+                  onRemove={(idx) => removeDetail(it.id, idx)}
                 />
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={it.price}
-                  onChange={(e) => updateItem(it.id, { price: e.target.value })}
-                  placeholder="מחיר"
-                  className="w-24 rounded-xl px-3 py-2 outline-none text-sm font-semibold tabular-nums"
-                  style={inputStyle}
-                />
-                <button onClick={() => removeItem(it.id)} className="p-1.5 shrink-0" style={{ color: COLORS.textMuted }}>
-                  <X size={15} />
-                </button>
               </div>
             ))}
           </div>
@@ -199,7 +287,7 @@ function AddQuoteModal({ onClose, onSave }) {
           type="text"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="לדוגמה: תנאי תשלום, הערות ללקוח"
+          placeholder="יתווסף לתנאים הכלליים בהצעה"
           className="w-full rounded-xl px-3 py-2.5 outline-none"
           style={inputStyle}
         />
@@ -223,6 +311,7 @@ function QuotePreview({ quote, onClose, onAccept, onDelete }) {
   const [downloading, setDownloading] = useState(false);
   const total = quote.items.reduce((s, it) => s + it.price, 0);
   const accepted = quote.status === "accepted";
+  const dark = "#211E1A";
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -237,7 +326,6 @@ function QuotePreview({ quote, onClose, onAccept, onDelete }) {
       pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
       pdf.save(`הצעת-מחיר-${quote.clientName}.pdf`);
     } catch (e) {
-      // מציג הודעה פשוטה, לא קריטי אם ה-PDF נכשל, אפשר לנסות שוב
       alert("יצירת ה-PDF נכשלה, נסה שוב");
     } finally {
       setDownloading(false);
@@ -247,45 +335,71 @@ function QuotePreview({ quote, onClose, onAccept, onDelete }) {
   return (
     <BottomSheet title="הצעת מחיר" onClose={onClose}>
       <div ref={printRef} dir="rtl" className="rounded-2xl p-5 mb-4" style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}` }}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-1.5">
-            <FileText size={18} style={{ color: COLORS.gold }} />
-            <span className="font-bold text-lg" style={{ color: COLORS.textPrimary }}>I-BOX</span>
+        <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 mb-5 text-sm">
+          <div>
+            <p><b>לכבוד:</b> {quote.clientName}</p>
+            {quote.clientPhone && <p><b>טלפון:</b> {quote.clientPhone}</p>}
+            {quote.eventType && <p><b>סוג אירוע:</b> {quote.eventType}</p>}
           </div>
-          <span className="text-xs" style={{ color: COLORS.textMuted }}>{fmtDate(quote.createdAt || quote.date)}</span>
+          <div>
+            {quote.location && <p><b>מיקום:</b> {quote.location}</p>}
+            <p><b>תאריך אירוע:</b> {fmtDate(quote.date)}</p>
+            <p><b>תאריך הצעה:</b> {fmtDate(quote.createdAt || quote.date)}</p>
+          </div>
         </div>
 
-        <h3 className="text-base font-bold mb-3" style={{ color: COLORS.textPrimary }}>הצעת מחיר עבור {quote.clientName}</h3>
+        <div className="space-y-3 mb-4">
+          {quote.items.map((it) => (
+            <div key={it.id} className="rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2" style={{ backgroundColor: dark }}>
+                <span className="font-bold text-sm" style={{ color: COLORS.gold }}>{fmtILS(it.price)}</span>
+                <span className="font-bold text-sm" style={{ color: "#fff" }}>{it.description}</span>
+              </div>
+              {it.details && it.details.length > 0 && (
+                <ul className="px-4 py-2 space-y-1" style={{ backgroundColor: COLORS.surfaceSoft }}>
+                  {it.details.map((d, idx) => (
+                    <li key={idx} className="flex items-center justify-end gap-1.5 text-xs">
+                      <span>{d}</span>
+                      <span style={{ color: COLORS.gold }}>◆</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
 
-        <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-          {quote.clientPhone && <p><span style={{ color: COLORS.textMuted }}>טלפון: </span>{quote.clientPhone}</p>}
-          {quote.eventType && <p><span style={{ color: COLORS.textMuted }}>סוג אירוע: </span>{quote.eventType}</p>}
-          <p><span style={{ color: COLORS.textMuted }}>תאריך: </span>{fmtDate(quote.date)}</p>
-          {quote.location && <p><span style={{ color: COLORS.textMuted }}>מיקום: </span>{quote.location}</p>}
-          {quote.guestCount && <p><span style={{ color: COLORS.textMuted }}>אורחים: </span>{quote.guestCount}</p>}
-          {(quote.startTime || quote.endTime) && (
-            <p><span style={{ color: COLORS.textMuted }}>שעות: </span>{quote.startTime || "?"} - {quote.endTime || "?"}</p>
-          )}
+        <div className="flex items-center justify-between px-3 py-2.5 rounded-lg mb-4" style={{ backgroundColor: dark }}>
+          <span className="font-bold text-sm" style={{ color: COLORS.gold }}>{fmtILS(total)}</span>
+          <span className="font-bold text-sm" style={{ color: COLORS.gold }}>סה"כ לתשלום (כולל מע"מ)</span>
         </div>
 
         <div className="mb-4">
-          <div className="space-y-1.5">
-            {quote.items.map((it) => (
-              <div key={it.id} className="flex items-center justify-between text-sm rounded-lg px-3 py-2" style={{ backgroundColor: COLORS.surfaceSoft }}>
-                <span>{it.description}</span>
-                <span className="font-medium tabular-nums">{fmtCurrency(it.price)}</span>
-              </div>
+          <p className="font-semibold text-sm text-center mb-2">תנאים כלליים</p>
+          <ul className="space-y-1">
+            {DEFAULT_TERMS.map((t, idx) => (
+              <li key={idx} className="flex items-start justify-end gap-1.5 text-xs">
+                <span className="text-right">{t}</span>
+                <span className="shrink-0">•</span>
+              </li>
             ))}
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-2 px-3" style={{ borderTop: `1px solid ${COLORS.border}` }}>
-            <span className="font-semibold text-sm">סה"כ</span>
-            <span className="font-bold tabular-nums" style={{ color: COLORS.goldSoft }}>{fmtCurrency(total)}</span>
-          </div>
+            {quote.notes && (
+              <li className="flex items-start justify-end gap-1.5 text-xs">
+                <span className="text-right">{quote.notes}</span>
+                <span className="shrink-0">•</span>
+              </li>
+            )}
+          </ul>
         </div>
 
-        {quote.notes && (
-          <p className="text-xs" style={{ color: COLORS.textMuted }}>{quote.notes}</p>
-        )}
+        <p className="text-sm mb-0.5">בברכה,</p>
+        <p className="text-sm font-bold mb-3">{BUSINESS.name} | {BUSINESS.ownerName}</p>
+
+        <div style={{ borderTop: `1px solid ${COLORS.gold}` }} className="pt-2">
+          <p className="text-center text-xs" style={{ color: COLORS.textMuted }}>
+            {BUSINESS.email} | {BUSINESS.phone} | ח.פ {BUSINESS.companyId} | {BUSINESS.name}
+          </p>
+        </div>
       </div>
 
       <div className="flex gap-2 mb-2">
@@ -346,7 +460,7 @@ function QuoteRow({ quote, onClick }) {
         </p>
       </div>
       <p className="font-semibold tabular-nums shrink-0 text-sm" style={{ color: COLORS.goldSoft }}>
-        {fmtCurrency(total)}
+        {fmtILS(total)}
       </p>
     </button>
   );
