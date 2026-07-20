@@ -82,7 +82,7 @@ function ItemDetailsInput({ details, onAdd, onRemove }) {
   );
 }
 
-function AddQuoteModal({ onClose, onSave }) {
+function AddQuoteModal({ onClose, onSave, catalog, onSaveCatalogItem, onDeleteCatalogItem }) {
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [eventType, setEventType] = useState("");
@@ -97,6 +97,9 @@ function AddQuoteModal({ onClose, onSave }) {
 
   const addItem = () => {
     setItems((prev) => [...prev, { id: genId(), description: "", price: "", details: [] }]);
+  };
+  const addFromCatalog = (catItem) => {
+    setItems((prev) => [...prev, { id: genId(), description: catItem.name, price: "", details: [...catItem.details] }]);
   };
   const updateItem = (id, patch) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -117,6 +120,14 @@ function AddQuoteModal({ onClose, onSave }) {
       .filter((it) => it.description.trim() && parseFloat(it.price) > 0)
       .map((it) => ({ id: it.id, description: it.description.trim(), price: parseFloat(it.price), details: it.details }));
     if (cleanItems.length === 0) return setError("צריך להוסיף לפחות שירות/אטרקציה אחד עם מחיר");
+
+    // שמירה אוטומטית של אטרקציות חדשות (עם פירוט) לקטלוג, כדי שלא יצטרך להקליד שוב בפעם הבאה
+    cleanItems.forEach((it) => {
+      if (it.details.length > 0 && !catalog.some((c) => c.name === it.description)) {
+        onSaveCatalogItem({ id: genId(), name: it.description, details: it.details });
+      }
+    });
+
     onSave({
       id: genId(),
       clientName: clientName.trim(),
@@ -229,6 +240,26 @@ function AddQuoteModal({ onClose, onSave }) {
           />
         </div>
       </div>
+
+      {catalog.length > 0 && (
+        <div className="mb-3">
+          <FieldLabel>מהקטלוג שלי (לחיצה מוסיפה לשורות, ה-X מוחק מהקטלוג)</FieldLabel>
+          <div className="flex flex-wrap gap-2">
+            {catalog.map((c) => (
+              <span
+                key={c.id}
+                className="text-xs pl-1 pr-2.5 py-1.5 rounded-full flex items-center gap-1.5"
+                style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft, border: `1px solid ${COLORS.gold}` }}
+              >
+                <button type="button" onClick={() => addFromCatalog(c)}>{c.name}</button>
+                <button type="button" onClick={() => onDeleteCatalogItem(c.id)} className="p-0.5">
+                  <X size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mb-3">
         <div className="flex items-center justify-between mb-1.5">
@@ -466,7 +497,7 @@ function QuoteRow({ quote, onClick }) {
   );
 }
 
-export default function Quotes({ quotes, onAddQuote, onDeleteQuote, onAcceptQuote }) {
+export default function Quotes({ quotes, onAddQuote, onDeleteQuote, onAcceptQuote, catalog, onSaveCatalogItem, onDeleteCatalogItem }) {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedQuote, setSelectedQuote] = useState(null);
 
@@ -504,6 +535,9 @@ export default function Quotes({ quotes, onAddQuote, onDeleteQuote, onAcceptQuot
             onAddQuote(quote);
             setShowAdd(false);
           }}
+          catalog={catalog}
+          onSaveCatalogItem={onSaveCatalogItem}
+          onDeleteCatalogItem={onDeleteCatalogItem}
         />
       )}
 
