@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifySessionToken } from "./lib/auth";
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|login|api/login).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|login|api/login|quote/).*)"],
 };
 
 export async function middleware(request) {
