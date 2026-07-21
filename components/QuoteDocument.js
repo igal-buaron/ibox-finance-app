@@ -26,7 +26,24 @@ export default function QuoteDocument({ quote, innerRef }) {
   const dark = "#211E1A";
 
   return (
-    <div ref={innerRef} dir="rtl" className="rounded-2xl p-5" style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}` }}>
+    <div
+      ref={innerRef}
+      dir="rtl"
+      className="rounded-2xl p-5 relative overflow-hidden"
+      style={{ backgroundColor: "#fff", border: `1px solid ${COLORS.border}` }}
+    >
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: "url(/quote-bg.jpg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          opacity: 0.1,
+        }}
+      />
+      <div className="relative">
       <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 mb-5 text-sm">
         <div>
           <p><b>לכבוד:</b> {quote.clientName}</p>
@@ -91,6 +108,7 @@ export default function QuoteDocument({ quote, innerRef }) {
         <p className="text-center text-xs" style={{ color: COLORS.textMuted }}>
           {BUSINESS.email} | {BUSINESS.phone} | ח.פ {BUSINESS.companyId} | {BUSINESS.name}
         </p>
+      </div>
       </div>
     </div>
   );
