@@ -1,20 +1,20 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const submitLogin = async (pwd) => {
+    if (!pwd || loading) return;
     setLoading(true);
     setError("");
     try {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password: pwd }),
       });
       if (res.ok) {
         window.location.href = "/";
@@ -27,6 +27,19 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // נכנס אוטומטית קצת אחרי שמפסיקים להקליד, בלי צורך ללחוץ על הכפתור
+  useEffect(() => {
+    if (!password) return;
+    const timer = setTimeout(() => submitLogin(password), 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [password]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    submitLogin(password);
   };
 
   return (
