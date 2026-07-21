@@ -40,7 +40,7 @@ export default function QuoteDocument({ quote, innerRef }) {
           backgroundImage: "url(/quote-bg.jpg)",
           backgroundSize: "cover",
           backgroundPosition: "center",
-          opacity: 0.1,
+          opacity: 0.18,
         }}
       />
       <div className="relative">
