@@ -1,5 +1,6 @@
 import { redis } from "../../../lib/redis";
 import QuoteDocument from "../../../components/QuoteDocument";
+import SignaturePad from "../../../components/SignaturePad";
 
 export default async function PublicQuotePage({ params }) {
   const raw = await redis.hget("ibox:quote", params.id);
@@ -25,8 +26,9 @@ export default async function PublicQuotePage({ params }) {
 
   return (
     <div dir="rtl" style={{ minHeight: "100vh", backgroundColor: "#FAF7EF", padding: "24px 16px" }}>
-      <div style={{ maxWidth: 480, margin: "0 auto" }}>
+      <div style={{ maxWidth: 480, margin: "0 auto" }} className="space-y-4">
         <QuoteDocument quote={quote} />
+        {quote.status !== "accepted" && <SignaturePad quoteId={quote.id} />}
       </div>
     </div>
   );
