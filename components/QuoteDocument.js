@@ -53,7 +53,6 @@ export default function QuoteDocument({ quote, innerRef }) {
         <div>
           {quote.location && <p><b>מיקום:</b> {quote.location}</p>}
           <p><b>תאריך אירוע:</b> {fmtDate(quote.date)}</p>
-          <p><b>תאריך הצעה:</b> {fmtDate(quote.createdAt || quote.date)}</p>
         </div>
       </div>
 
@@ -100,6 +99,15 @@ export default function QuoteDocument({ quote, innerRef }) {
           )}
         </ul>
       </div>
+
+      {quote.signature && (
+        <div className="mb-4 rounded-xl p-3" style={{ backgroundColor: COLORS.incomeTint }}>
+          <p className="text-xs font-semibold mb-2 text-center" style={{ color: COLORS.income }}>
+            נחתם ואושר על ידי הלקוח{quote.signedAt ? ` · ${fmtDate(quote.signedAt)}` : ""}
+          </p>
+          <img src={quote.signature} alt="חתימת הלקוח" className="mx-auto" style={{ maxHeight: 80, backgroundColor: "#fff", borderRadius: 8 }} />
+        </div>
+      )}
 
       <p className="text-sm mb-0.5">בברכה,</p>
       <p className="text-sm font-bold mb-3">{BUSINESS.name} | {BUSINESS.ownerName}</p>
