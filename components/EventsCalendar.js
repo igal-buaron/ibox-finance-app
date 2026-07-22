@@ -67,7 +67,7 @@ function AttractionTagInput({ attractions, onChange }) {
   );
 }
 
-function AddEventModal({ initialDate, onClose, onSave }) {
+function AddEventModal({ initialDate, onClose, onSave, catalog }) {
   const [name, setName] = useState("");
   const [date, setDate] = useState(initialDate || todayStr());
   const [clientPhone, setClientPhone] = useState("");
@@ -199,6 +199,27 @@ function AddEventModal({ initialDate, onClose, onSave }) {
           />
         </div>
       </div>
+
+      {catalog && catalog.length > 0 && (
+        <div className="mb-3">
+          <FieldLabel>מהקטלוג שלי (לחיצה מוסיפה)</FieldLabel>
+          <div className="flex flex-wrap gap-2">
+            {catalog.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  if (!attractions.includes(c.name)) setAttractions([...attractions, c.name]);
+                }}
+                className="text-xs px-2.5 py-1.5 rounded-full"
+                style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft, border: `1px solid ${COLORS.gold}` }}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mb-3">
         <FieldLabel>סוגי אטרקציות באירוע</FieldLabel>
@@ -439,7 +460,7 @@ function EventRow({ event, onClick }) {
   );
 }
 
-export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCompleteEvent }) {
+export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCompleteEvent, catalog }) {
   const [monthOffset, setMonthOffset] = useState(0);
   const [showAdd, setShowAdd] = useState(false);
   const [addDate, setAddDate] = useState(null);
@@ -564,6 +585,7 @@ export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCo
             onAddEvent(event);
             setShowAdd(false);
           }}
+          catalog={catalog}
         />
       )}
 

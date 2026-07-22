@@ -718,6 +718,7 @@ export default function FinanceTracker() {
             onAddEvent={addEvent}
             onDeleteEvent={deleteEvent}
             onCompleteEvent={completeEvent}
+            catalog={catalog}
           />
         )}
 
