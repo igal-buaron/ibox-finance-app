@@ -1,11 +1,106 @@
 "use client";
-import React, { useState, useMemo } from "react";
-import { Plus, ChevronLeft, ChevronRight, Check, X, CalendarDays } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { Plus, ChevronLeft, ChevronRight, Check, X, CalendarDays, Bell } from "lucide-react";
 import {
   COLORS, shadowSm, shadowMd, EXPENSE_CATEGORIES,
   genId, todayStr, fmtCurrency, fmtDate, isToday,
   BottomSheet, FieldLabel, inputStyle, CategoryPicker, ConfirmDelete,
 } from "./shared";
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function ReminderToggle() {
+  const [status, setStatus] = useState("checking"); // checking | unsupported | off | on | denied
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setStatus("unsupported");
+        return;
+      }
+      if (Notification.permission === "denied") {
+        setStatus("denied");
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        const sub = reg ? await reg.pushManager.getSubscription() : null;
+        setStatus(sub ? "on" : "off");
+      } catch {
+        setStatus("off");
+      }
+    })();
+  }, []);
+
+  const enable = async () => {
+    setBusy(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setStatus("denied");
+        return;
+      }
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY),
+      });
+      await fetch("/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entity: "pushSubscriptions",
+          action: "upsert",
+          id: btoa(sub.endpoint).slice(0, 40).replace(/[^a-zA-Z0-9]/g, ""),
+          item: sub.toJSON(),
+        }),
+      });
+      setStatus("on");
+    } catch {
+      setStatus("off");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (status === "checking" || status === "unsupported") return null;
+
+  if (status === "on") {
+    return (
+      <div
+        className="flex items-center gap-1.5 text-xs font-medium px-3 py-2.5 rounded-xl mb-3"
+        style={{ backgroundColor: COLORS.incomeTint, color: COLORS.income }}
+      >
+        <Bell size={14} /> תזכורות אירועים פעילות בטלפון הזה
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={enable}
+      disabled={busy}
+      className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl font-semibold text-sm mb-3"
+      style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft, boxShadow: shadowSm }}
+    >
+      <Bell size={16} />
+      {busy
+        ? "מפעיל..."
+        : status === "denied"
+        ? "התראות חסומות - יש לאפשר בהגדרות הדפדפן"
+        : "הפעל תזכורות אירועים בטלפון"}
+    </button>
+  );
+}
 
 function AttractionTagInput({ attractions, onChange }) {
   const [draft, setDraft] = useState("");
@@ -498,24 +593,26 @@ export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCo
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl p-4" style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}>
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={() => setMonthOffset((m) => m - 1)} className="p-1.5 rounded-full" style={{ color: COLORS.textMuted }}>
-            <ChevronRight size={18} />
+      <ReminderToggle />
+
+      <div className="rounded-2xl p-5" style={{ backgroundColor: COLORS.surface, boxShadow: shadowMd }}>
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={() => setMonthOffset((m) => m - 1)} className="p-2 rounded-full" style={{ color: COLORS.textMuted, backgroundColor: COLORS.surfaceSoft }}>
+            <ChevronRight size={20} />
           </button>
-          <p className="text-sm font-semibold">{monthName}</p>
-          <button onClick={() => setMonthOffset((m) => m + 1)} className="p-1.5 rounded-full" style={{ color: COLORS.textMuted }}>
-            <ChevronLeft size={18} />
+          <p className="text-lg font-bold">{monthName}</p>
+          <button onClick={() => setMonthOffset((m) => m + 1)} className="p-2 rounded-full" style={{ color: COLORS.textMuted, backgroundColor: COLORS.surfaceSoft }}>
+            <ChevronLeft size={20} />
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 text-center mb-1">
+        <div className="grid grid-cols-7 gap-1.5 text-center mb-2">
           {["א", "ב", "ג", "ד", "ה", "ו", "ש"].map((d) => (
-            <span key={d} className="text-[11px] font-medium" style={{ color: COLORS.textMuted }}>{d}</span>
+            <span key={d} className="text-xs font-semibold" style={{ color: COLORS.textMuted }}>{d}</span>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-1.5">
           {cells.map((day, idx) => {
             if (day === null) return <div key={idx} />;
             const key = dateKeyFor(day);
@@ -531,18 +628,19 @@ export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCo
                     setShowAdd(true);
                   }
                 }}
-                className="aspect-square rounded-lg flex flex-col items-center justify-center text-xs relative"
+                className="aspect-square rounded-xl flex flex-col items-center justify-center text-base relative"
                 style={{
                   backgroundColor: today ? COLORS.goldTint : "transparent",
                   color: today ? COLORS.goldSoft : COLORS.textPrimary,
-                  fontWeight: today ? 700 : 400,
+                  fontWeight: today ? 700 : 500,
+                  border: today ? `1.5px solid ${COLORS.gold}` : "1.5px solid transparent",
                 }}
               >
                 {day}
                 {dayEvents.length > 0 && (
                   <span
-                    className="w-1.5 h-1.5 rounded-full absolute bottom-1"
-                    style={{ backgroundColor: dayEvents.some((e) => e.status !== "done") ? COLORS.gold : COLORS.income }}
+                    className="w-2 h-2 rounded-full absolute bottom-1.5"
+                    style={{ backgroundColor: COLORS.income }}
                   />
                 )}
               </button>
