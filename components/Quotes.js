@@ -78,10 +78,10 @@ function AddQuoteModal({ onClose, onSave, catalog, onSaveCatalogItem, onDeleteCa
   const [error, setError] = useState("");
 
   const addItem = () => {
-    setItems((prev) => [...prev, { id: genId(), description: "", price: "", details: [] }]);
+    setItems((prev) => [...prev, { id: genId(), description: "", price: "", hoursFrom: "", hoursTo: "", details: [] }]);
   };
   const addFromCatalog = (catItem) => {
-    setItems((prev) => [...prev, { id: genId(), description: catItem.name, price: "", details: [...catItem.details] }]);
+    setItems((prev) => [...prev, { id: genId(), description: catItem.name, price: "", hoursFrom: "", hoursTo: "", details: [...catItem.details] }]);
   };
   const updateItem = (id, patch) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -100,7 +100,14 @@ function AddQuoteModal({ onClose, onSave, catalog, onSaveCatalogItem, onDeleteCa
     if (!clientName.trim()) return setError("צריך למלא שם לקוח");
     const cleanItems = items
       .filter((it) => it.description.trim() && parseFloat(it.price) > 0)
-      .map((it) => ({ id: it.id, description: it.description.trim(), price: parseFloat(it.price), details: it.details }));
+      .map((it) => ({
+        id: it.id,
+        description: it.description.trim(),
+        price: parseFloat(it.price),
+        hoursFrom: it.hoursFrom || "",
+        hoursTo: it.hoursTo || "",
+        details: it.details,
+      }));
     if (cleanItems.length === 0) return setError("צריך להוסיף לפחות שירות/אטרקציה אחד עם מחיר");
 
     // שמירה אוטומטית של אטרקציות חדשות (עם פירוט) לקטלוג, כדי שלא יצטרך להקליד שוב בפעם הבאה
@@ -282,6 +289,24 @@ function AddQuoteModal({ onClose, onSave, catalog, onSaveCatalogItem, onDeleteCa
                   <button type="button" onClick={() => removeItem(it.id)} className="p-1 shrink-0" style={{ color: COLORS.textMuted }}>
                     <X size={15} />
                   </button>
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs shrink-0" style={{ color: COLORS.textMuted }}>שעות פעילות:</span>
+                  <input
+                    type="time"
+                    value={it.hoursFrom}
+                    onChange={(e) => updateItem(it.id, { hoursFrom: e.target.value })}
+                    className="flex-1 rounded-lg px-2 py-1.5 outline-none text-xs"
+                    style={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.textPrimary }}
+                  />
+                  <span className="text-xs" style={{ color: COLORS.textMuted }}>עד</span>
+                  <input
+                    type="time"
+                    value={it.hoursTo}
+                    onChange={(e) => updateItem(it.id, { hoursTo: e.target.value })}
+                    className="flex-1 rounded-lg px-2 py-1.5 outline-none text-xs"
+                    style={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}`, color: COLORS.textPrimary }}
+                  />
                 </div>
                 <ItemDetailsInput
                   details={it.details}
