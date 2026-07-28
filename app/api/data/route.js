@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { redis } from "../../../lib/redis";
 import { verifySessionToken } from "../../../lib/auth";
 
-const HASH_KEYS = { transactions: "ibox:tx", debts: "ibox:debt", events: "ibox:event", quotes: "ibox:quote", catalog: "ibox:catalog" };
+const HASH_KEYS = {
+  transactions: "ibox:tx",
+  debts: "ibox:debt",
+  events: "ibox:event",
+  quotes: "ibox:quote",
+  catalog: "ibox:catalog",
+  pushSubscriptions: "ibox:push",
+};
 const LEGACY_KEYS = { transactions: "ibox:transactions", debts: "ibox:debts" };
 
 async function checkAuth(request) {
