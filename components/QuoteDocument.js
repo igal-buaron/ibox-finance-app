@@ -63,15 +63,24 @@ export default function QuoteDocument({ quote, innerRef }) {
               <span className="font-bold text-sm" style={{ color: COLORS.gold }}>{fmtILS(it.price)}</span>
               <span className="font-bold text-sm" style={{ color: "#fff" }}>{it.description}</span>
             </div>
-            {it.details && it.details.length > 0 && (
-              <ul className="px-4 py-2 space-y-1" style={{ backgroundColor: COLORS.surfaceSoft }}>
-                {it.details.map((d, idx) => (
-                  <li key={idx} className="flex items-center justify-end gap-1.5 text-xs">
-                    <span>{d}</span>
-                    <span style={{ color: COLORS.gold }}>◆</span>
-                  </li>
-                ))}
-              </ul>
+            {((it.details && it.details.length > 0) || it.hoursFrom || it.hoursTo) && (
+              <div className="px-4 py-2" style={{ backgroundColor: COLORS.surfaceSoft }}>
+                {(it.hoursFrom || it.hoursTo) && (
+                  <p className="text-xs font-semibold mb-1" style={{ color: COLORS.textPrimary }}>
+                    שעות פעילות: {it.hoursFrom || "?"} - {it.hoursTo || "?"}
+                  </p>
+                )}
+                {it.details && it.details.length > 0 && (
+                  <ul className="space-y-1">
+                    {it.details.map((d, idx) => (
+                      <li key={idx} className="flex items-center justify-end gap-1.5 text-xs">
+                        <span>{d}</span>
+                        <span style={{ color: COLORS.gold }}>◆</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </div>
         ))}
