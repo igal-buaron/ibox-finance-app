@@ -303,9 +303,7 @@ function AddEventModal({ initialDate, onClose, onSave, catalog }) {
               <button
                 key={c.id}
                 type="button"
-                onClick={() => {
-                  if (!attractions.includes(c.name)) setAttractions([...attractions, c.name]);
-                }}
+                onClick={() => setAttractions([...attractions, c.name])}
                 className="text-xs px-2.5 py-1.5 rounded-full"
                 style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft, border: `1px solid ${COLORS.gold}` }}
               >

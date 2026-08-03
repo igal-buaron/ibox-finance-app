@@ -19,6 +19,7 @@ function AddTransactionModal({ initialType, onClose, onSave }) {
   const [type, setType] = useState(initialType || "expense");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
+  const [tag, setTag] = useState("פרטי");
   const [date, setDate] = useState(todayStr());
   const [editingDate, setEditingDate] = useState(false);
   const [note, setNote] = useState("");
@@ -29,19 +30,19 @@ function AddTransactionModal({ initialType, onClose, onSave }) {
 
   useEffect(() => {
     setCategory("");
+    setTag("פרטי");
   }, [type]);
 
   const handleSave = () => {
     const num = parseFloat(amount);
     if (!num || num <= 0) return setError("צריך למלא סכום תקין");
-    if (!category) return setError("צריך לבחור קטגוריה");
-    const cat = categories.find((c) => c.name === category);
+    if (!category.trim()) return setError("צריך לבחור או להקליד קטגוריה");
     onSave({
       id: genId(),
       type,
       amount: num,
-      category,
-      tag: cat ? cat.tag : "פרטי",
+      category: category.trim(),
+      tag,
       date,
       note: note.trim(),
     });
@@ -86,7 +87,15 @@ function AddTransactionModal({ initialType, onClose, onSave }) {
 
       <div className="mb-4">
         <FieldLabel>קטגוריה</FieldLabel>
-        <CategoryPicker categories={categories} value={category} onChange={setCategory} />
+        <CategoryPicker
+          key={type}
+          categories={categories}
+          value={category}
+          onChange={(name, t) => {
+            setCategory(name);
+            if (t) setTag(t);
+          }}
+        />
       </div>
 
       <div className="mb-4 flex items-center gap-2">
@@ -131,8 +140,8 @@ function AddTransactionModal({ initialType, onClose, onSave }) {
   );
 }
 
-function AddDebtModal({ onClose, onSave }) {
-  const [direction, setDirection] = useState("owedToMe");
+function AddDebtModal({ onClose, onSave, initialDirection }) {
+  const [direction, setDirection] = useState(initialDirection || "owedToMe");
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -226,6 +235,43 @@ function AddDebtModal({ onClose, onSave }) {
   );
 }
 
+function TransactionDetailsModal({ t, onClose, onDelete }) {
+  const isIncome = t.type === "income";
+  return (
+    <BottomSheet title={t.category} onClose={onClose}>
+      <div className="mb-4 flex items-center gap-2">
+        <TagBadge tag={t.tag} />
+        <span className="text-sm" style={{ color: COLORS.textMuted }}>{fmtDate(t.date)}</span>
+      </div>
+
+      <div
+        className="rounded-xl p-4 mb-4 text-center"
+        style={{ backgroundColor: isIncome ? COLORS.incomeTint : COLORS.expenseTint }}
+      >
+        <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>{isIncome ? "הכנסה" : "הוצאה"}</p>
+        <p className="text-2xl font-extrabold tabular-nums" style={{ color: isIncome ? COLORS.income : COLORS.expense }}>
+          {isIncome ? "+" : "-"}{fmtCurrency(t.amount)}
+        </p>
+      </div>
+
+      <div className="mb-5">
+        <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>מקור / הערה</p>
+        <p className="text-sm">{t.note || "אין הערה"}</p>
+      </div>
+
+      <div className="flex items-center justify-between px-1">
+        <span className="text-sm" style={{ color: COLORS.textMuted }}>מחיקת התנועה</span>
+        <ConfirmDelete
+          onConfirm={() => {
+            onDelete();
+            onClose();
+          }}
+        />
+      </div>
+    </BottomSheet>
+  );
+}
+
 // ---------- main app ----------
 
 export default function FinanceTracker() {
@@ -239,6 +285,8 @@ export default function FinanceTracker() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [quickAddType, setQuickAddType] = useState(null);
   const [showAddDebt, setShowAddDebt] = useState(false);
+  const [debtDirection, setDebtDirection] = useState("owedToMe");
+  const [openTransaction, setOpenTransaction] = useState(null);
   const [filterType, setFilterType] = useState("all");
   const [filterTag, setFilterTag] = useState("all");
   const [saveError, setSaveError] = useState("");
@@ -567,14 +615,28 @@ export default function FinanceTracker() {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl p-4" style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}>
+              <button
+                onClick={() => {
+                  setDebtDirection("owedToMe");
+                  setShowAddDebt(true);
+                }}
+                className="rounded-2xl p-4 text-right"
+                style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}
+              >
                 <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>חייבים לי</p>
                 <p className="text-xl font-bold tabular-nums" style={{ color: COLORS.goldSoft }}>{fmtCurrency(stats.owedToMe)}</p>
-              </div>
-              <div className="rounded-2xl p-4" style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}>
+              </button>
+              <button
+                onClick={() => {
+                  setDebtDirection("iOwe");
+                  setShowAddDebt(true);
+                }}
+                className="rounded-2xl p-4 text-right"
+                style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}
+              >
                 <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>אני חייב</p>
                 <p className="text-xl font-bold tabular-nums" style={{ color: COLORS.expense }}>{fmtCurrency(stats.iOwe)}</p>
-              </div>
+              </button>
             </div>
 
             <div>
@@ -586,7 +648,7 @@ export default function FinanceTracker() {
               ) : (
                 <div className="space-y-2">
                   {transactions.slice(0, 5).map((t) => (
-                    <TransactionRow key={t.id} t={t} onDelete={() => deleteTransaction(t.id)} />
+                    <TransactionRow key={t.id} t={t} onDelete={() => deleteTransaction(t.id)} onOpen={() => setOpenTransaction(t)} />
                   ))}
                 </div>
               )}
@@ -660,7 +722,7 @@ export default function FinanceTracker() {
             ) : (
               <div className="space-y-2">
                 {filteredTransactions.map((t) => (
-                  <TransactionRow key={t.id} t={t} onDelete={() => deleteTransaction(t.id)} />
+                  <TransactionRow key={t.id} t={t} onDelete={() => deleteTransaction(t.id)} onOpen={() => setOpenTransaction(t)} />
                 ))}
               </div>
             )}
@@ -670,7 +732,10 @@ export default function FinanceTracker() {
         {activeTab === "debts" && (
           <div className="space-y-5">
             <button
-              onClick={() => setShowAddDebt(true)}
+              onClick={() => {
+                setDebtDirection("owedToMe");
+                setShowAddDebt(true);
+              }}
               className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl font-semibold text-sm"
               style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft, boxShadow: shadowSm }}
             >
@@ -678,14 +743,28 @@ export default function FinanceTracker() {
             </button>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl p-4" style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}>
+              <button
+                onClick={() => {
+                  setDebtDirection("owedToMe");
+                  setShowAddDebt(true);
+                }}
+                className="rounded-2xl p-4 text-right"
+                style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}
+              >
                 <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>סה"כ חייבים לי</p>
                 <p className="text-lg font-bold tabular-nums" style={{ color: COLORS.goldSoft }}>{fmtCurrency(stats.owedToMe)}</p>
-              </div>
-              <div className="rounded-2xl p-4" style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}>
+              </button>
+              <button
+                onClick={() => {
+                  setDebtDirection("iOwe");
+                  setShowAddDebt(true);
+                }}
+                className="rounded-2xl p-4 text-right"
+                style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}
+              >
                 <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>סה"כ אני חייב</p>
                 <p className="text-lg font-bold tabular-nums" style={{ color: COLORS.expense }}>{fmtCurrency(stats.iOwe)}</p>
-              </div>
+              </button>
             </div>
 
             {activeDebts.length === 0 ? (
@@ -769,15 +848,28 @@ export default function FinanceTracker() {
           onSave={addTransaction}
         />
       )}
-      {showAddDebt && <AddDebtModal onClose={() => setShowAddDebt(false)} onSave={addDebt} />}
+      {showAddDebt && (
+        <AddDebtModal onClose={() => setShowAddDebt(false)} onSave={addDebt} initialDirection={debtDirection} />
+      )}
+      {openTransaction && (
+        <TransactionDetailsModal
+          t={openTransaction}
+          onClose={() => setOpenTransaction(null)}
+          onDelete={() => deleteTransaction(openTransaction.id)}
+        />
+      )}
     </div>
   );
 }
 
-function TransactionRow({ t, onDelete }) {
+function TransactionRow({ t, onDelete, onOpen }) {
   const isIncome = t.type === "income";
   return (
-    <div className="flex items-center gap-3 p-3 rounded-2xl" style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}>
+    <div
+      onClick={onOpen}
+      className="flex items-center gap-3 p-3 rounded-2xl cursor-pointer"
+      style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}
+    >
       <div
         className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
         style={{ backgroundColor: isIncome ? COLORS.incomeTint : COLORS.expenseTint }}
@@ -800,7 +892,9 @@ function TransactionRow({ t, onDelete }) {
       <p className="font-semibold tabular-nums shrink-0" style={{ color: isIncome ? COLORS.income : COLORS.expense }}>
         {isIncome ? "+" : "-"}{fmtCurrency(t.amount)}
       </p>
-      <ConfirmDelete onConfirm={onDelete} />
+      <div onClick={(e) => e.stopPropagation()}>
+        <ConfirmDelete onConfirm={onDelete} />
+      </div>
     </div>
   );
 }

@@ -7,7 +7,7 @@ export {
   genId, todayStr, monthKeyOf, currentMonthKey, fmtCurrency, fmtDate, isToday, monthLabel,
   inputStyle,
 } from "../lib/theme";
-import { COLORS } from "../lib/theme";
+import { COLORS, inputStyle } from "../lib/theme";
 
 // ---------- small building blocks ----------
 
@@ -69,29 +69,91 @@ export function FieldLabel({ children }) {
   return <label className="text-xs font-medium block mb-1.5" style={{ color: COLORS.textMuted }}>{children}</label>;
 }
 
-// category chip grid - faster than a dropdown
+// category chip grid - faster than a dropdown, plus a free-text option for anything not on the list
 export function CategoryPicker({ categories, value, onChange }) {
+  const isPreset = categories.some((c) => c.name === value);
+  const [customMode, setCustomMode] = useState(!!value && !isPreset);
+  const [customText, setCustomText] = useState(!isPreset ? value || "" : "");
+  const [customTag, setCustomTag] = useState("פרטי");
+
   return (
-    <div className="flex flex-wrap gap-2">
-      {categories.map((c) => {
-        const selected = value === c.name;
-        const tagColor = c.tag === "עסקי" ? COLORS.tagBiz : COLORS.tagPersonal;
-        return (
-          <button
-            key={c.name}
-            type="button"
-            onClick={() => onChange(c.name)}
-            className="px-3 py-2 rounded-xl text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: selected ? tagColor + "20" : COLORS.surfaceSoft,
-              border: `1.5px solid ${selected ? tagColor : COLORS.border}`,
-              color: selected ? tagColor : COLORS.textPrimary,
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {categories.map((c) => {
+          const selected = !customMode && value === c.name;
+          const tagColor = c.tag === "עסקי" ? COLORS.tagBiz : COLORS.tagPersonal;
+          return (
+            <button
+              key={c.name}
+              type="button"
+              onClick={() => {
+                setCustomMode(false);
+                onChange(c.name, c.tag);
+              }}
+              className="px-3 py-2 rounded-xl text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: selected ? tagColor + "20" : COLORS.surfaceSoft,
+                border: `1.5px solid ${selected ? tagColor : COLORS.border}`,
+                color: selected ? tagColor : COLORS.textPrimary,
+              }}
+            >
+              {c.name}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setCustomMode(true)}
+          className="px-3 py-2 rounded-xl text-sm font-medium transition-colors"
+          style={{
+            backgroundColor: customMode ? COLORS.goldTint : COLORS.surfaceSoft,
+            border: `1.5px solid ${customMode ? COLORS.gold : COLORS.border}`,
+            color: customMode ? COLORS.goldSoft : COLORS.textPrimary,
+          }}
+        >
+          + קטגוריה אחרת
+        </button>
+      </div>
+      {customMode && (
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="text"
+            autoFocus
+            value={customText}
+            onChange={(e) => {
+              setCustomText(e.target.value);
+              onChange(e.target.value, customTag);
             }}
-          >
-            {c.name}
-          </button>
-        );
-      })}
+            placeholder="הקלד קטגוריה משלך..."
+            className="flex-1 rounded-xl px-3 py-2 outline-none text-sm"
+            style={inputStyle}
+          />
+          <div className="flex gap-1 shrink-0">
+            {["עסקי", "פרטי"].map((t) => {
+              const tagColor = t === "עסקי" ? COLORS.tagBiz : COLORS.tagPersonal;
+              const selected = customTag === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    setCustomTag(t);
+                    onChange(customText, t);
+                  }}
+                  className="px-2.5 py-2 rounded-xl text-xs font-medium"
+                  style={{
+                    backgroundColor: selected ? tagColor + "20" : COLORS.surfaceSoft,
+                    border: `1.5px solid ${selected ? tagColor : COLORS.border}`,
+                    color: selected ? tagColor : COLORS.textMuted,
+                  }}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
