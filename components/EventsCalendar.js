@@ -528,6 +528,25 @@ function EventDetailsModal({ event, onClose, onComplete, onDelete }) {
   );
 }
 
+function DayAgendaModal({ date, events, onSelectEvent, onAddNew, onClose }) {
+  return (
+    <BottomSheet title={fmtDate(date)} onClose={onClose}>
+      <div className="space-y-2 mb-3">
+        {events.map((e) => (
+          <EventRow key={e.id} event={e} onClick={() => onSelectEvent(e)} />
+        ))}
+      </div>
+      <button
+        onClick={onAddNew}
+        className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl font-semibold text-sm"
+        style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft, boxShadow: shadowSm }}
+      >
+        <Plus size={16} /> הוסף אירוע נוסף בתאריך זה
+      </button>
+    </BottomSheet>
+  );
+}
+
 function EventRow({ event, onClick }) {
   const done = event.status === "done";
   return (
@@ -560,6 +579,7 @@ export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCo
   const [showAdd, setShowAdd] = useState(false);
   const [addDate, setAddDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [dayAgenda, setDayAgenda] = useState(null); // { date, events }
 
   const viewDate = useMemo(() => {
     const d = new Date();
@@ -622,7 +642,7 @@ export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCo
               <button
                 key={idx}
                 onClick={() => {
-                  if (dayEvents.length > 0) setSelectedEvent(dayEvents[0]);
+                  if (dayEvents.length > 0) setDayAgenda({ date: key, events: dayEvents });
                   else {
                     setAddDate(key);
                     setShowAdd(true);
@@ -637,11 +657,19 @@ export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCo
                 }}
               >
                 {day}
-                {dayEvents.length > 0 && (
+                {dayEvents.length === 1 && (
                   <span
                     className="w-2 h-2 rounded-full absolute bottom-1.5"
                     style={{ backgroundColor: COLORS.income }}
                   />
+                )}
+                {dayEvents.length > 1 && (
+                  <span
+                    className="absolute bottom-0.5 text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center"
+                    style={{ backgroundColor: COLORS.income, color: "#fff" }}
+                  >
+                    {dayEvents.length}
+                  </span>
                 )}
               </button>
             );
@@ -693,6 +721,23 @@ export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCo
           onClose={() => setSelectedEvent(null)}
           onComplete={onCompleteEvent}
           onDelete={onDeleteEvent}
+        />
+      )}
+
+      {dayAgenda && (
+        <DayAgendaModal
+          date={dayAgenda.date}
+          events={dayAgenda.events}
+          onClose={() => setDayAgenda(null)}
+          onSelectEvent={(event) => {
+            setDayAgenda(null);
+            setSelectedEvent(event);
+          }}
+          onAddNew={() => {
+            setAddDate(dayAgenda.date);
+            setDayAgenda(null);
+            setShowAdd(true);
+          }}
         />
       )}
     </div>
