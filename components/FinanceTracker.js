@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Plus, TrendingUp, TrendingDown, Users, Wallet,
-  LayoutGrid, ArrowUpCircle, ArrowDownCircle, Loader2, Receipt, Pencil, Check, LogOut, CalendarDays, FileText
+  LayoutGrid, ArrowUpCircle, ArrowDownCircle, Loader2, Receipt, Pencil, Check, LogOut, CalendarDays, FileText,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, CartesianGrid
@@ -15,12 +16,12 @@ import {
 import EventsCalendar from "./EventsCalendar";
 import Quotes from "./Quotes";
 
-function AddTransactionModal({ initialType, onClose, onSave }) {
+function AddTransactionModal({ initialType, initialDate, onClose, onSave }) {
   const [type, setType] = useState(initialType || "expense");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
   const [tag, setTag] = useState("פרטי");
-  const [date, setDate] = useState(todayStr());
+  const [date, setDate] = useState(initialDate || todayStr());
   const [editingDate, setEditingDate] = useState(false);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
@@ -284,11 +285,12 @@ export default function FinanceTracker() {
   const [catalog, setCatalog] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [quickAddType, setQuickAddType] = useState(null);
+  const [quickAddDate, setQuickAddDate] = useState(null);
   const [showAddDebt, setShowAddDebt] = useState(false);
   const [debtDirection, setDebtDirection] = useState("owedToMe");
   const [openTransaction, setOpenTransaction] = useState(null);
-  const [filterType, setFilterType] = useState("all");
   const [filterTag, setFilterTag] = useState("all");
+  const [ledgerMonthOffset, setLedgerMonthOffset] = useState(0);
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
@@ -342,6 +344,7 @@ export default function FinanceTracker() {
     setTransactions(updated);
     persist("transactions", "upsert", tx.id, tx);
     setQuickAddType(null);
+    setQuickAddDate(null);
   };
 
   const deleteTransaction = (id) => {
@@ -506,12 +509,36 @@ export default function FinanceTracker() {
     return months;
   }, [transactions]);
 
-  const filteredTransactions = useMemo(() => {
+  const ledgerViewDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + ledgerMonthOffset);
+    return d;
+  }, [ledgerMonthOffset]);
+  const ledgerMonthKey = `${ledgerViewDate.getFullYear()}-${String(ledgerViewDate.getMonth() + 1).padStart(2, "0")}`;
+  const ledgerMonthName = ledgerViewDate.toLocaleDateString("he-IL", { month: "long", year: "numeric" });
+
+  const ledgerIncome = useMemo(() => {
     return transactions
-      .filter((t) => filterType === "all" || t.type === filterType)
+      .filter((t) => t.type === "income" && monthKeyOf(t.date) === ledgerMonthKey)
       .filter((t) => filterTag === "all" || t.tag === filterTag)
       .sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [transactions, filterType, filterTag]);
+  }, [transactions, ledgerMonthKey, filterTag]);
+
+  const ledgerExpense = useMemo(() => {
+    return transactions
+      .filter((t) => t.type === "expense" && monthKeyOf(t.date) === ledgerMonthKey)
+      .filter((t) => filterTag === "all" || t.tag === filterTag)
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+  }, [transactions, ledgerMonthKey, filterTag]);
+
+  const ledgerIncomeTotal = ledgerIncome.reduce((s, t) => s + t.amount, 0);
+  const ledgerExpenseTotal = ledgerExpense.reduce((s, t) => s + t.amount, 0);
+
+  const openLedgerAdd = (type) => {
+    setQuickAddType(type);
+    setQuickAddDate(ledgerMonthKey === currentMonthKey() ? todayStr() : `${ledgerMonthKey}-01`);
+  };
 
   const activeDebts = debts.filter((d) => !d.settled);
   const settledDebts = debts.filter((d) => d.settled);
@@ -657,44 +684,26 @@ export default function FinanceTracker() {
         )}
 
         {activeTab === "transactions" && (
-          <div className="space-y-3">
-            <div className="flex gap-3">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-2xl p-2" style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}>
               <button
-                onClick={() => setQuickAddType("income")}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-semibold text-sm"
-                style={{ backgroundColor: COLORS.incomeTint, color: COLORS.income, boxShadow: shadowSm }}
+                onClick={() => setLedgerMonthOffset((m) => m - 1)}
+                className="p-2 rounded-full"
+                style={{ color: COLORS.textMuted, backgroundColor: COLORS.surfaceSoft }}
               >
-                <Plus size={16} /> הכנסה
+                <ChevronRight size={18} />
               </button>
+              <p className="text-sm font-bold">{ledgerMonthName}</p>
               <button
-                onClick={() => setQuickAddType("expense")}
-                className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl font-semibold text-sm"
-                style={{ backgroundColor: COLORS.expenseTint, color: COLORS.expense, boxShadow: shadowSm }}
+                onClick={() => setLedgerMonthOffset((m) => m + 1)}
+                className="p-2 rounded-full"
+                style={{ color: COLORS.textMuted, backgroundColor: COLORS.surfaceSoft }}
               >
-                <Plus size={16} /> הוצאה
+                <ChevronLeft size={18} />
               </button>
             </div>
 
             <div className="flex gap-2 overflow-x-auto pb-1">
-              {[
-                { key: "all", label: "הכל" },
-                { key: "income", label: "הכנסות" },
-                { key: "expense", label: "הוצאות" },
-              ].map((f) => (
-                <button
-                  key={f.key}
-                  onClick={() => setFilterType(f.key)}
-                  className="px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap"
-                  style={{
-                    backgroundColor: filterType === f.key ? COLORS.gold : COLORS.surface,
-                    color: filterType === f.key ? "#fff" : COLORS.textMuted,
-                    boxShadow: shadowSm,
-                  }}
-                >
-                  {f.label}
-                </button>
-              ))}
-              <span className="w-px my-1" style={{ backgroundColor: COLORS.border }} />
               {[
                 { key: "all", label: "הכל" },
                 { key: "עסקי", label: "עסקי" },
@@ -715,17 +724,27 @@ export default function FinanceTracker() {
               ))}
             </div>
 
-            {filteredTransactions.length === 0 ? (
-              <div className="text-center py-10 rounded-2xl" style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted, boxShadow: shadowSm }}>
-                <p className="text-sm">אין תנועות שמתאימות לסינון</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredTransactions.map((t) => (
-                  <TransactionRow key={t.id} t={t} onDelete={() => deleteTransaction(t.id)} onOpen={() => setOpenTransaction(t)} />
-                ))}
-              </div>
-            )}
+            <LedgerTable
+              title="הכנסות"
+              rows={ledgerIncome}
+              total={ledgerIncomeTotal}
+              color={COLORS.income}
+              tint={COLORS.incomeTint}
+              onAdd={() => openLedgerAdd("income")}
+              onOpenRow={(t) => setOpenTransaction(t)}
+              emptyLabel="אין הכנסות בחודש זה"
+            />
+
+            <LedgerTable
+              title="הוצאות"
+              rows={ledgerExpense}
+              total={ledgerExpenseTotal}
+              color={COLORS.expense}
+              tint={COLORS.expenseTint}
+              onAdd={() => openLedgerAdd("expense")}
+              onOpenRow={(t) => setOpenTransaction(t)}
+              emptyLabel="אין הוצאות בחודש זה"
+            />
           </div>
         )}
 
@@ -844,7 +863,11 @@ export default function FinanceTracker() {
       {quickAddType && (
         <AddTransactionModal
           initialType={quickAddType}
-          onClose={() => setQuickAddType(null)}
+          initialDate={quickAddDate}
+          onClose={() => {
+            setQuickAddType(null);
+            setQuickAddDate(null);
+          }}
           onSave={addTransaction}
         />
       )}
@@ -928,6 +951,62 @@ function DebtRow({ d, onToggle, onDelete }) {
         {fmtCurrency(d.amount)}
       </p>
       <ConfirmDelete onConfirm={onDelete} />
+    </div>
+  );
+}
+
+function LedgerTable({ title, rows, total, color, tint, onAdd, onOpenRow, emptyLabel }) {
+  return (
+    <div className="rounded-2xl p-3" style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}>
+      <div className="flex items-center justify-between mb-2 px-1">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold">{title}</p>
+          <span className="text-sm font-bold tabular-nums" style={{ color }}>{fmtCurrency(total)}</span>
+        </div>
+        <button
+          onClick={onAdd}
+          className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg"
+          style={{ backgroundColor: tint, color }}
+        >
+          <Plus size={13} /> הוסף
+        </button>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="text-xs text-center py-5" style={{ color: COLORS.textMuted }}>{emptyLabel}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                <th className="text-right py-1.5 px-1.5 font-medium" style={{ color: COLORS.textMuted }}>תאריך</th>
+                <th className="text-right py-1.5 px-1.5 font-medium" style={{ color: COLORS.textMuted }}>קטגוריה</th>
+                <th className="text-right py-1.5 px-1.5 font-medium" style={{ color: COLORS.textMuted }}>הערה</th>
+                <th className="text-left py-1.5 px-1.5 font-medium" style={{ color: COLORS.textMuted }}>סכום</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((t) => (
+                <tr
+                  key={t.id}
+                  onClick={() => onOpenRow(t)}
+                  className="cursor-pointer"
+                  style={{ borderBottom: `1px solid ${COLORS.border}` }}
+                >
+                  <td className="py-2 px-1.5 whitespace-nowrap" style={{ color: COLORS.textMuted }}>
+                    {t.date.slice(8, 10)}.{t.date.slice(5, 7)}
+                  </td>
+                  <td className="py-2 px-1.5">{t.category}</td>
+                  <td className="py-2 px-1.5 truncate max-w-[70px]" style={{ color: COLORS.textMuted }}>{t.note || "—"}</td>
+                  <td className="py-2 px-1.5 text-left font-semibold tabular-nums whitespace-nowrap" style={{ color }}>
+                    {fmtCurrency(t.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
