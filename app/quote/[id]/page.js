@@ -28,7 +28,7 @@ export default async function PublicQuotePage({ params }) {
     <div dir="rtl" style={{ minHeight: "100vh", backgroundColor: "#FAF7EF", padding: "24px 16px" }}>
       <div style={{ maxWidth: 480, margin: "0 auto" }} className="space-y-4">
         <QuoteDocument quote={quote} />
-        {quote.status !== "accepted" && <SignaturePad quoteId={quote.id} />}
+        {quote.status !== "accepted" && !quote.signature && <SignaturePad quoteId={quote.id} />}
       </div>
     </div>
   );

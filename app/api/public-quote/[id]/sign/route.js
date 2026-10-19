@@ -21,6 +21,11 @@ export async function POST(request, { params }) {
   }
   const quote = typeof raw === "string" ? JSON.parse(raw) : raw;
 
+  // הצעה מהאתר כבר נחתמה שם, והמחירים בה הגיעו מהדפדפן — אישור (ויצירת אירוע) רק על ידי יגאל באפליקציה
+  if (quote.source === "website") {
+    return NextResponse.json({ error: "ההצעה כבר נחתמה וממתינה לאישור" }, { status: 409 });
+  }
+
   if (quote.status === "accepted") {
     return NextResponse.json({ ok: true, alreadyAccepted: true });
   }

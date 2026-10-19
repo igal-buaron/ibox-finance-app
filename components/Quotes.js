@@ -477,7 +477,7 @@ function QuoteRow({ quote, onClick }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{quote.clientName}</p>
         <p className="text-xs truncate" style={{ color: COLORS.textMuted }}>
-          {fmtDate(quote.date)}{quote.eventType ? ` · ${quote.eventType}` : ""}{accepted ? " · אושרה" : ""}
+          {fmtDate(quote.date)}{quote.eventType ? ` · ${quote.eventType}` : ""}{quote.source === "website" ? " · מהאתר" : ""}{!accepted && quote.signature ? " · נחתמה" : ""}{accepted ? " · אושרה" : ""}
         </p>
       </div>
       <p className="font-semibold tabular-nums shrink-0 text-sm" style={{ color: COLORS.goldSoft }}>
