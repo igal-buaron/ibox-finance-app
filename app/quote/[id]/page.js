@@ -2,7 +2,8 @@ import { redis } from "../../../lib/redis";
 import QuoteDocument from "../../../components/QuoteDocument";
 import SignaturePad from "../../../components/SignaturePad";
 
-export default async function PublicQuotePage({ params }) {
+export default async function PublicQuotePage(props) {
+  const params = await props.params;
   const raw = await redis.hget("ibox:quote", params.id);
   const quote = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null;
 

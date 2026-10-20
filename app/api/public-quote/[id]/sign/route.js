@@ -3,7 +3,8 @@ import { redis } from "../../../../../lib/redis";
 import { genId } from "../../../../../lib/theme";
 
 // חתימה ואישור הצעת מחיר על ידי הלקוח - אין דרישת התחברות, מוגן רק על ידי מזהה ההצעה שלא ניתן לניחוש.
-export async function POST(request, { params }) {
+export async function POST(request, props) {
+  const params = await props.params;
   let body;
   try {
     body = await request.json();
