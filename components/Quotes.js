@@ -110,10 +110,15 @@ function AddQuoteModal({ onClose, onSave, catalog, onSaveCatalogItem, onDeleteCa
       }));
     if (cleanItems.length === 0) return setError("צריך להוסיף לפחות שירות/אטרקציה אחד עם מחיר");
 
-    // שמירה אוטומטית של אטרקציות חדשות (עם פירוט) לקטלוג, כדי שלא יצטרך להקליד שוב בפעם הבאה
+    // שמירה אוטומטית של אטרקציות לקטלוג, כדי שלא יצטרך להקליד שוב בפעם הבאה.
+    // אטרקציה שכבר קיימת בקטלוג מתעדכנת אם הפירוט שלה השתנה
     cleanItems.forEach((it) => {
-      if (it.details.length > 0 && !catalog.some((c) => c.name === it.description)) {
+      if (it.details.length === 0) return;
+      const existing = catalog.find((c) => c.name === it.description);
+      if (!existing) {
         onSaveCatalogItem({ id: genId(), name: it.description, details: it.details });
+      } else if (JSON.stringify(existing.details) !== JSON.stringify(it.details)) {
+        onSaveCatalogItem({ ...existing, details: it.details });
       }
     });
 

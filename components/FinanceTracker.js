@@ -462,7 +462,8 @@ export default function FinanceTracker() {
   };
 
   const addCatalogItem = (item) => {
-    const updated = [item, ...catalog];
+    const exists = catalog.some((c) => c.id === item.id);
+    const updated = exists ? catalog.map((c) => (c.id === item.id ? item : c)) : [item, ...catalog];
     setCatalog(updated);
     persist("catalog", "upsert", item.id, item);
   };
