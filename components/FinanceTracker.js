@@ -402,6 +402,11 @@ export default function FinanceTracker() {
     persist("events", "upsert", event.id, event);
   };
 
+  const updateEvent = (event) => {
+    setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)));
+    persist("events", "upsert", event.id, event);
+  };
+
   const deleteEvent = (id) => {
     const updated = events.filter((e) => e.id !== id);
     setEvents(updated);
@@ -839,6 +844,7 @@ export default function FinanceTracker() {
           <EventsCalendar
             events={events}
             onAddEvent={addEvent}
+            onUpdateEvent={updateEvent}
             onDeleteEvent={deleteEvent}
             onCompleteEvent={completeEvent}
             onEventsSynced={reloadEvents}
