@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
-import { Plus, ChevronLeft, ChevronRight, Check, X, CalendarDays, Bell, Smartphone, RefreshCw } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Check, X, CalendarDays, Bell, Smartphone, RefreshCw, Pencil } from "lucide-react";
 import {
   COLORS, shadowSm, shadowMd, EXPENSE_CATEGORIES,
   genId, todayStr, fmtCurrency, fmtDate, isToday,
@@ -421,19 +421,23 @@ function AttractionTagInput({ attractions, onChange }) {
   );
 }
 
-function AddEventModal({ initialDate, onClose, onSave, catalog }) {
-  const [name, setName] = useState("");
-  const [date, setDate] = useState(initialDate || todayStr());
-  const [clientPhone, setClientPhone] = useState("");
-  const [location, setLocation] = useState("");
-  const [eventType, setEventType] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [attractions, setAttractions] = useState([]);
-  const [supplierName, setSupplierName] = useState("");
-  const [income, setIncome] = useState("");
-  const [expenses, setExpenses] = useState([]);
-  const [note, setNote] = useState("");
+// משמש גם להוספת אירוע חדש וגם לעריכת אירוע קיים (editingEvent)
+function AddEventModal({ initialDate, editingEvent, onClose, onSave, catalog }) {
+  const ev = editingEvent || {};
+  const [name, setName] = useState(ev.name || "");
+  const [date, setDate] = useState(ev.date || initialDate || todayStr());
+  const [clientPhone, setClientPhone] = useState(ev.clientPhone || "");
+  const [location, setLocation] = useState(ev.location || "");
+  const [eventType, setEventType] = useState(ev.eventType || "");
+  const [startTime, setStartTime] = useState(ev.startTime || "");
+  const [endTime, setEndTime] = useState(ev.endTime || "");
+  const [attractions, setAttractions] = useState(ev.attractions || []);
+  const [supplierName, setSupplierName] = useState(ev.supplierName || "");
+  const [income, setIncome] = useState(ev.income ? String(ev.income) : "");
+  const [expenses, setExpenses] = useState(
+    (ev.expenses || []).map((e) => ({ id: e.id || genId(), category: e.category, amount: String(e.amount) }))
+  );
+  const [note, setNote] = useState(ev.note || "");
   const [error, setError] = useState("");
 
   const addExpenseRow = () => {
@@ -453,10 +457,11 @@ function AddEventModal({ initialDate, onClose, onSave, catalog }) {
       .filter((e) => e.category && parseFloat(e.amount) > 0)
       .map((e) => ({ id: e.id, category: e.category, amount: parseFloat(e.amount) }));
     onSave({
-      id: genId(),
+      ...ev,
+      id: ev.id || genId(),
       name: name.trim(),
       date,
-      status: "planned",
+      status: ev.status || "planned",
       clientPhone: clientPhone.trim(),
       location: location.trim(),
       eventType: eventType.trim(),
@@ -472,7 +477,7 @@ function AddEventModal({ initialDate, onClose, onSave, catalog }) {
   };
 
   return (
-    <BottomSheet title="אירוע חדש" onClose={onClose}>
+    <BottomSheet title={editingEvent ? "עריכת אירוע" : "אירוע חדש"} onClose={onClose}>
       <div className="mb-3">
         <FieldLabel>שם האירוע</FieldLabel>
         <input
@@ -678,7 +683,7 @@ function AddEventModal({ initialDate, onClose, onSave, catalog }) {
   );
 }
 
-function EventDetailsModal({ event, onClose, onComplete, onDelete }) {
+function EventDetailsModal({ event, onClose, onComplete, onDelete, onEdit }) {
   const totalExpenses = (event.expenses || []).reduce((s, e) => s + e.amount, 0);
   const done = event.status === "done";
 
@@ -774,6 +779,15 @@ function EventDetailsModal({ event, onClose, onComplete, onDelete }) {
             <Check size={16} /> סמן כגמור
           </button>
         )}
+        {!done && (
+          <button
+            onClick={() => onEdit(event)}
+            className="px-4 py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5"
+            style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft }}
+          >
+            <Pencil size={15} /> עריכה
+          </button>
+        )}
         <ConfirmDelete
           onConfirm={() => {
             onDelete(event.id);
@@ -834,11 +848,12 @@ function EventRow({ event, onClick }) {
   );
 }
 
-export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCompleteEvent, onEventsSynced, catalog }) {
+export default function EventsCalendar({ events, onAddEvent, onUpdateEvent, onDeleteEvent, onCompleteEvent, onEventsSynced, catalog }) {
   const [monthOffset, setMonthOffset] = useState(0);
   const [showAdd, setShowAdd] = useState(false);
   const [addDate, setAddDate] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [editingEvent, setEditingEvent] = useState(null);
   const [dayAgenda, setDayAgenda] = useState(null); // { date, events }
 
   const viewDate = useMemo(() => {
@@ -983,6 +998,22 @@ export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCo
           onClose={() => setSelectedEvent(null)}
           onComplete={onCompleteEvent}
           onDelete={onDeleteEvent}
+          onEdit={(event) => {
+            setSelectedEvent(null);
+            setEditingEvent(event);
+          }}
+        />
+      )}
+
+      {editingEvent && (
+        <AddEventModal
+          editingEvent={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onSave={(event) => {
+            onUpdateEvent(event);
+            setEditingEvent(null);
+          }}
+          catalog={catalog}
         />
       )}
 
