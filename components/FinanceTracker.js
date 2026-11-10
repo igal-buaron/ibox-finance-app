@@ -316,6 +316,30 @@ export default function FinanceTracker() {
     })();
   }, []);
 
+  const reloadEvents = useCallback(async () => {
+    try {
+      const res = await fetch("/api/data");
+      if (!res.ok) return;
+      const data = await res.json();
+      setEvents(data.events || []);
+    } catch {}
+  }, []);
+
+  // סנכרון ברקע מיומן האייפון בכל פתיחה של האפליקציה (השרת מדלג אם סונכרן לפני פחות מ-5 דקות)
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/calendar-sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "sync" }),
+        });
+        const result = res.ok ? await res.json() : null;
+        if (result?.changed) reloadEvents();
+      } catch {}
+    })();
+  }, [reloadEvents]);
+
   const persist = useCallback(async (entity, action, id, item) => {
     try {
       const res = await fetch("/api/data", {
@@ -817,6 +841,7 @@ export default function FinanceTracker() {
             onAddEvent={addEvent}
             onDeleteEvent={deleteEvent}
             onCompleteEvent={completeEvent}
+            onEventsSynced={reloadEvents}
             catalog={catalog}
           />
         )}

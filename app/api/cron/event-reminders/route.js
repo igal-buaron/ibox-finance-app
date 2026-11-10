@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { redis } from "../../../../lib/redis";
+import { syncCalendar } from "../../../../lib/icalSync";
 
 function todayInIsrael() {
   // מחזיר YYYY-MM-DD לפי שעון ישראל, ללא תלות באזור הזמן של השרת
@@ -29,6 +30,11 @@ export async function GET(request) {
     return NextResponse.json({ error: "משתני VAPID חסרים" }, { status: 500 });
   }
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY_RESOLVED, VAPID_PRIVATE_KEY);
+
+  // מושכים קודם אירועים חדשים מיומן האייפון, כדי שגם הם יקבלו תזכורת
+  try {
+    await syncCalendar({ force: true });
+  } catch {}
 
   const today = todayInIsrael();
 

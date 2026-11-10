@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { redis } from "../../../lib/redis";
 import { verifySessionToken } from "../../../lib/auth";
+import { isPhoneEventId, ignorePhoneEvent } from "../../../lib/icalSync";
 
 const HASH_KEYS = {
   transactions: "ibox:tx",
@@ -104,6 +105,8 @@ export async function POST(request) {
       await redis.hset(hashKey, { [id]: JSON.stringify(item) });
     } else {
       await redis.hdel(hashKey, id);
+      // אירוע מהאייפון שנמחק באתר לא יחזור בסנכרון הבא
+      if (entity === "events" && isPhoneEventId(id)) await ignorePhoneEvent(id);
     }
     return NextResponse.json({ ok: true });
   } catch (e) {
