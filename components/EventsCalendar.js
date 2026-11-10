@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
-import { Plus, ChevronLeft, ChevronRight, Check, X, CalendarDays, Bell } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Check, X, CalendarDays, Bell, Smartphone, RefreshCw } from "lucide-react";
 import {
   COLORS, shadowSm, shadowMd, EXPENSE_CATEGORIES,
   genId, todayStr, fmtCurrency, fmtDate, isToday,
@@ -98,6 +98,265 @@ function ReminderToggle() {
         : status === "denied"
         ? "התראות חסומות - יש לאפשר בהגדרות הדפדפן"
         : "הפעל תזכורות אירועים בטלפון"}
+    </button>
+  );
+}
+
+function timeAgo(ts) {
+  if (!ts) return "";
+  const minutes = Math.round((Date.now() - ts) / 60000);
+  if (minutes < 1) return "עכשיו";
+  if (minutes < 60) return `לפני ${minutes} דק'`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `לפני ${hours} שע'`;
+  return `לפני ${Math.round(hours / 24)} ימים`;
+}
+
+function PhoneCalendarSync({ onSynced }) {
+  const [status, setStatus] = useState(null); // { connected, lastSyncAt, lastError }
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const loadStatus = async () => {
+    try {
+      const res = await fetch("/api/calendar-sync");
+      if (res.ok) setStatus(await res.json());
+    } catch {}
+  };
+
+  useEffect(() => {
+    loadStatus();
+  }, []);
+
+  const call = async (payload) => {
+    setBusy(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/calendar-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+      if (!res.ok || result.ok === false) {
+        setMessage(result.error || "משהו השתבש, נסה שוב");
+        return null;
+      }
+      if (result.changed) onSynced();
+      await loadStatus();
+      return result;
+    } catch {
+      setMessage("משהו השתבש, נסה שוב");
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!status) return null;
+
+  if (status.connected) {
+    return (
+      <div
+        className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-xl mb-3"
+        style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted, boxShadow: shadowSm }}
+      >
+        <Smartphone size={14} style={{ color: COLORS.income }} />
+        <span className="flex-1">
+          {status.lastError || message || `מסונכרן עם יומן האייפון · ${timeAgo(status.lastSyncAt)}`}
+        </span>
+        <button
+          onClick={() => call({ action: "sync", force: true })}
+          disabled={busy}
+          className="p-1.5 rounded-lg"
+          style={{ backgroundColor: COLORS.surfaceSoft }}
+          aria-label="סנכרן עכשיו"
+        >
+          <RefreshCw size={14} className={busy ? "animate-spin" : ""} />
+        </button>
+        <button
+          onClick={async () => {
+            await call({ action: "disconnect" });
+          }}
+          disabled={busy}
+          className="px-2 py-1 rounded-lg"
+          style={{ backgroundColor: COLORS.surfaceSoft }}
+        >
+          נתק
+        </button>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl font-semibold text-sm mb-3"
+        style={{ backgroundColor: COLORS.surface, color: COLORS.textPrimary, boxShadow: shadowSm }}
+      >
+        <Smartphone size={16} /> חבר את יומן האייפון
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl p-4 mb-3" style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}>
+      <p className="text-sm font-semibold mb-1">חיבור יומן האייפון</p>
+      <p className="text-xs mb-3" style={{ color: COLORS.textMuted }}>
+        באייפון: לוח שנה ← לוחות שנה ← ⓘ ליד היומן ← "לוח שנה ציבורי" ← שתף קישור ← העתק. ואז הדבק כאן.
+      </p>
+      <input
+        type="url"
+        dir="ltr"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="webcal://p…-caldav.icloud.com/published/…"
+        className="w-full rounded-xl px-3 py-2 outline-none text-sm mb-2"
+        style={inputStyle}
+      />
+      {message && (
+        <p className="text-xs mb-2" style={{ color: COLORS.expense }}>{message}</p>
+      )}
+      <div className="flex gap-2">
+        <button
+          onClick={async () => {
+            const result = await call({ action: "connect", url });
+            if (result) {
+              setOpen(false);
+              setUrl("");
+            }
+          }}
+          disabled={busy || !url.trim()}
+          className="flex-1 py-2.5 rounded-xl font-semibold text-sm"
+          style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft, opacity: busy || !url.trim() ? 0.6 : 1 }}
+        >
+          {busy ? "מתחבר..." : "חבר וסנכרן"}
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          className="px-4 py-2.5 rounded-xl text-sm"
+          style={{ backgroundColor: COLORS.surfaceSoft, color: COLORS.textMuted }}
+        >
+          ביטול
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CopyRow({ label, value }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="mb-2">
+      <p className="text-xs mb-1" style={{ color: COLORS.textMuted }}>{label}</p>
+      <div className="flex items-center gap-2">
+        <code dir="ltr" className="flex-1 text-xs rounded-lg px-2 py-2 break-all" style={{ backgroundColor: COLORS.surfaceSoft }}>
+          {value}
+        </code>
+        <button
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(value);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            } catch {}
+          }}
+          className="px-2.5 py-2 rounded-lg text-xs font-semibold shrink-0"
+          style={{ backgroundColor: COLORS.goldTint, color: COLORS.goldSoft }}
+        >
+          {copied ? "הועתק" : "העתק"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// חיבור לאפליקציית התזכורות באייפון דרך קיצור (Shortcut) ששולח את התזכורות לאתר
+function RemindersShortcut() {
+  const [status, setStatus] = useState(null);
+  const [newKey, setNewKey] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const loadStatus = async () => {
+    try {
+      const res = await fetch("/api/calendar-sync");
+      if (res.ok) setStatus(await res.json());
+    } catch {}
+  };
+
+  useEffect(() => {
+    loadStatus();
+  }, []);
+
+  const createKey = async () => {
+    if (status?.remindersConnected && !window.confirm("מפתח חדש יבטל את הקודם, ותצטרך לעדכן אותו בקיצור. להמשיך?")) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/calendar-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "createRemindersKey" }),
+      });
+      const result = await res.json();
+      if (result.key) setNewKey(result.key);
+      await loadStatus();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!status) return null;
+
+  if (newKey) {
+    return (
+      <div className="rounded-2xl p-4 mb-3" style={{ backgroundColor: COLORS.surface, boxShadow: shadowSm }}>
+        <p className="text-sm font-semibold mb-1">פרטים לקיצור באייפון</p>
+        <p className="text-xs mb-3" style={{ color: COLORS.textMuted }}>
+          תעתיק את שני אלה לקיצור. המפתח מוצג רק עכשיו - אם תאבד אותו, פשוט תיצור חדש.
+        </p>
+        <CopyRow label="כתובת (URL)" value={`${window.location.origin}/api/reminders-import`} />
+        <CopyRow label="מפתח (לכותרת Authorization)" value={`Bearer ${newKey}`} />
+        <button
+          onClick={() => setNewKey("")}
+          className="w-full mt-1 py-2.5 rounded-xl text-sm font-semibold"
+          style={{ backgroundColor: COLORS.surfaceSoft, color: COLORS.textMuted }}
+        >
+          סיימתי
+        </button>
+      </div>
+    );
+  }
+
+  if (status.remindersConnected) {
+    return (
+      <div
+        className="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-xl mb-3"
+        style={{ backgroundColor: COLORS.surface, color: COLORS.textMuted, boxShadow: shadowSm }}
+      >
+        <Smartphone size={14} style={{ color: COLORS.income }} />
+        <span className="flex-1">
+          {status.remindersLastAt
+            ? `תזכורות מהאייפון · עודכן ${timeAgo(status.remindersLastAt)} · ${status.remindersCount} עם תאריך`
+            : "תזכורות מהאייפון · מחכה להרצה ראשונה של הקיצור"}
+        </span>
+        <button onClick={createKey} disabled={busy} className="px-2 py-1 rounded-lg" style={{ backgroundColor: COLORS.surfaceSoft }}>
+          מפתח חדש
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={createKey}
+      disabled={busy}
+      className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl font-semibold text-sm mb-3"
+      style={{ backgroundColor: COLORS.surface, color: COLORS.textPrimary, boxShadow: shadowSm }}
+    >
+      <Smartphone size={16} /> {busy ? "יוצר..." : "חבר את התזכורות מהאייפון"}
     </button>
   );
 }
@@ -562,17 +821,20 @@ function EventRow({ event, onClick }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate" style={{ textDecoration: done ? "line-through" : "none" }}>{event.name}</p>
         <p className="text-xs truncate" style={{ color: COLORS.textMuted }}>
-          {fmtDate(event.date)}{event.location ? ` · ${event.location}` : ""}
+          {fmtDate(event.date)}{event.startTime ? ` · ${event.startTime}` : ""}{event.location ? ` · ${event.location}` : ""}
+          {event.source === "iphone" ? " · 📱 מהאייפון" : ""}
         </p>
       </div>
-      <p className="font-semibold tabular-nums shrink-0 text-sm" style={{ color: COLORS.income }}>
-        {fmtCurrency(event.income)}
-      </p>
+      {(event.source !== "iphone" || event.income > 0) && (
+        <p className="font-semibold tabular-nums shrink-0 text-sm" style={{ color: COLORS.income }}>
+          {fmtCurrency(event.income)}
+        </p>
+      )}
     </button>
   );
 }
 
-export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCompleteEvent, catalog }) {
+export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCompleteEvent, onEventsSynced, catalog }) {
   const [monthOffset, setMonthOffset] = useState(0);
   const [showAdd, setShowAdd] = useState(false);
   const [addDate, setAddDate] = useState(null);
@@ -612,6 +874,8 @@ export default function EventsCalendar({ events, onAddEvent, onDeleteEvent, onCo
   return (
     <div className="space-y-4">
       <ReminderToggle />
+      <RemindersShortcut />
+      <PhoneCalendarSync onSynced={onEventsSynced} />
 
       <div className="rounded-2xl p-5" style={{ backgroundColor: COLORS.surface, boxShadow: shadowMd }}>
         <div className="flex items-center justify-between mb-4">
